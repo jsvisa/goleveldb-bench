@@ -2,8 +2,8 @@ package bench
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -90,7 +90,7 @@ func (env *WriteEnv) logPercentage() {
 	}
 	pct := int((float64(env.written) / float64(env.cfg.Size)) * 100)
 	if pct > env.lastPercent {
-		fmt.Printf("%3d%%  %s\n", pct, env.cfg.TestName)
+		log.Printf("%3d%%  %s\n", pct, env.cfg.TestName)
 		env.lastPercent = pct
 	}
 }

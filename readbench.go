@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -196,7 +197,7 @@ func (env *ReadEnv) logReadPercentage() {
 	}
 	pct := int((float64(env.read) / float64(env.cfg.Size)) * 100)
 	if pct > env.lastReadPercent {
-		fmt.Printf("[Reading] %3d%%  %s\n", pct, env.cfg.TestName)
+		log.Printf("[Reading] %3d%%  %s\n", pct, env.cfg.TestName)
 		env.lastReadPercent = pct
 	}
 }
@@ -207,7 +208,7 @@ func (env *ReadEnv) logWritePercentage() {
 	}
 	pct := int((float64(env.written) / float64(env.cfg.Size)) * 100)
 	if pct > env.lastWrittenPercent {
-		fmt.Printf("[Writing] %3d%%  %s\n", pct, env.cfg.TestName)
+		log.Printf("[Writing] %3d%%  %s\n", pct, env.cfg.TestName)
 		env.lastWrittenPercent = pct
 	}
 }
