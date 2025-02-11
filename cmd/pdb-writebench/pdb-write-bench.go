@@ -192,7 +192,7 @@ func (b batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 	}
 	defer db.Close()
 
-	batch := new(pebble.Batch)
+	batch := db.NewBatch()
 	bsize := 0
 	return env.Run(func(key, value string, lastCall bool) error {
 		batch.Set([]byte(key), []byte(value), b.wOptions)
