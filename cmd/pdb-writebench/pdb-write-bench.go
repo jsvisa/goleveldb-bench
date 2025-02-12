@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cockroachdb/pebble"
 	bench "github.com/fjl/goleveldb-bench"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -29,12 +31,22 @@ func main() {
 		dirflag      = flag.String("dir", ".", "test database directory")
 		logdirflag   = flag.String("logdir", ".", "test log output directory")
 		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
+		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
 
 		run []string
 		cfg bench.WriteConfig
 		err error
 	)
 	flag.Parse()
+
+	// Start metrics server
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		log.Printf("Starting metrics server on %s", *metricsAddr)
+		if err := http.ListenAndServe(*metricsAddr, nil); err != nil {
+			log.Printf("Metrics server error: %v", err)
+		}
+	}()
 
 	for _, t := range strings.Split(*testflag, ",") {
 		t = strings.TrimSpace(t)
@@ -170,6 +182,7 @@ func (b seqWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 		return err
 	}
 	defer db.Close()
+
 	return env.Run(func(key, value string, lastCall bool) error {
 		if err := db.Set([]byte(key), []byte(value), b.wOptions); err != nil {
 			return err

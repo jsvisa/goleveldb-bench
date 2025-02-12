@@ -7,6 +7,9 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const emitInterval = 500 * 1024 // bytes
@@ -31,6 +34,10 @@ type WriteEnv struct {
 	startTime, lastTime  time.Duration
 	written, lastWritten uint64
 	lastPercent          int
+
+	// metrics
+	writeCount *prometheus.CounterVec
+	writeBytes *prometheus.CounterVec
 }
 
 func NewWriteEnv(output io.Writer, cfg WriteConfig) *WriteEnv {
@@ -39,6 +46,14 @@ func NewWriteEnv(output io.Writer, cfg WriteConfig) *WriteEnv {
 		out:   json.NewEncoder(output),
 		key:   make([]byte, cfg.KeySize),
 		value: make([]byte, cfg.DataSize),
+		writeCount: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "write_count",
+			Help: "The total number of write operations",
+		}, []string{"test"}),
+		writeBytes: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "write_bytes",
+			Help: "The total number of bytes written",
+		}, []string{"test"}),
 	}
 }
 
@@ -82,6 +97,9 @@ func (env *WriteEnv) Progress(w int) {
 		env.lastTime = now
 		env.lastWritten = env.written
 	}
+
+	env.writeCount.WithLabelValues(env.cfg.TestName).Inc()
+	env.writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(w))
 }
 
 func (env *WriteEnv) logPercentage() {
