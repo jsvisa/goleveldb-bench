@@ -8,6 +8,20 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	readCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "read_count",
+		Help: "The total number of read operations",
+	}, []string{"test"})
+	readBytes = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "read_bytes",
+		Help: "The total number of bytes readed",
+	}, []string{"test"})
 )
 
 type ReadConfig struct {
@@ -176,6 +190,9 @@ func (env *ReadEnv) start() {
 
 // Progress writes a JSON progress event to the environment's output writer.
 func (env *ReadEnv) Progress(w int) {
+	readCount.WithLabelValues(env.cfg.TestName).Inc()
+	readBytes.WithLabelValues(env.cfg.TestName).Add(float64(w))
+
 	now := mononow()
 	env.mu.Lock()
 	defer env.mu.Unlock()
