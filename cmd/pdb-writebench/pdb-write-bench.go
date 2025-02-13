@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	_ "net/http/pprof"
+
 	"github.com/cockroachdb/pebble"
 	bench "github.com/fjl/goleveldb-bench"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -208,7 +210,7 @@ func (b batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 	batch := db.NewBatch()
 	bsize := 0
 	return env.Run(func(key, value string, lastCall bool) error {
-		batch.Set([]byte(key), []byte(value), b.wOptions)
+		batch.Set([]byte(key), []byte(value), nil)
 		bsize += len(value)
 		if bsize >= b.BatchSize || lastCall {
 			if err := batch.Commit(b.wOptions); err != nil {
