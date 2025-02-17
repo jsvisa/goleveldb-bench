@@ -18,12 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	KiB = 1024
-	MiB = KiB * 1024
-	GiB = MiB * 1024
-)
-
 func main() {
 	var (
 		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
@@ -110,19 +104,19 @@ type Benchmarker interface {
 var tests = map[string]Benchmarker{
 	"nobatch":        seqWrite{},
 	"nobatch-nosync": seqWrite{wOptions: pebble.NoSync},
-	"batch-100kb":    batchWrite{BatchSize: 100 * KiB},
-	"batch-1mb":      batchWrite{BatchSize: MiB},
-	"batch-5mb":      batchWrite{BatchSize: 5 * MiB},
+	"batch-100kb":    batchWrite{BatchSize: 100 * bench.KiB},
+	"batch-1mb":      batchWrite{BatchSize: bench.MiB},
+	"batch-5mb":      batchWrite{BatchSize: 5 * bench.MiB},
 	"batch-100kb-wb-512mb-cache-1gb": batchWrite{
-		BatchSize: 100 * 1024,
+		BatchSize: 100 * bench.KiB,
 		Options: pebble.Options{
 			// These settings approximate what geth is doing.
-			Cache:        pebble.NewCache(int64(1024 * MiB)),
-			MemTableSize: 512 * MiB,
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 512 * bench.MiB,
 		},
 	},
 	"batch-100kb-nosync": batchWrite{
-		BatchSize: 100 * 1024,
+		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 	},
 	"batch-100kb-wb-512mb-cache-1gb-nosync": batchWrite{
@@ -130,8 +124,8 @@ var tests = map[string]Benchmarker{
 		wOptions:  pebble.NoSync,
 		Options: pebble.Options{
 			// These settings approximate what geth is doing.
-			Cache:        pebble.NewCache(int64(1024 * MiB)),
-			MemTableSize: 512 * MiB,
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 512 * bench.MiB,
 		},
 	},
 	// "batch-100kb-ctable-64mb": batchWrite{

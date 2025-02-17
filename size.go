@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+const (
+	KiB = 1024
+	MiB = KiB * 1024
+	GiB = MiB * 1024
+)
+
 var sizeRE = regexp.MustCompile(`(?i)^([0-9]+)([kmg]?b)?$`)
 
 // ParseSize parses a size with B, MB, GB unit and returns its value in bytes.
