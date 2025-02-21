@@ -22,6 +22,10 @@ var (
 		Name: "write_bytes",
 		Help: "The total number of bytes written",
 	}, []string{"test"})
+	writeSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "write_seconds",
+		Help: "The total number of seconds taken to write",
+	}, []string{"test"})
 )
 
 const emitInterval = 500 * 1024 // bytes
@@ -125,6 +129,7 @@ func (env *WriteEnv) Progress(w int) {
 	env.written += uint64(w)
 	d := now - env.lastTime
 	dw := env.written - env.lastWritten
+	writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(d.Seconds()))
 	if dw > 0 && dw > emitInterval {
 		p := Progress{Processed: env.written, Delta: dw, Duration: d}
 		env.out.Encode(&p)
