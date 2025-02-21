@@ -80,7 +80,7 @@ func runTest(logdir, dbdir, name string, cfg bench.WriteConfig) error {
 	}
 	defer logfile.Close()
 	log.Printf("== running %q", name)
-	env := bench.NewWriteEnv(logfile, cfg)
+	env := bench.NewWriteEnv(logfile, nil, nil, cfg)
 	return tests[name].Benchmark(dbdir, env)
 }
 

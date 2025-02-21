@@ -2,6 +2,7 @@ package bench
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -40,6 +41,9 @@ type WriteEnv struct {
 	key, value []byte
 	rand       *rand.Rand
 	out        *json.Encoder
+	kw         io.Writer
+	resetKey   func()
+	keych      chan [][]byte
 	// reporting
 	mu                   sync.Mutex
 	startTime, lastTime  time.Duration
@@ -47,12 +51,15 @@ type WriteEnv struct {
 	lastPercent          int
 }
 
-func NewWriteEnv(output io.Writer, cfg WriteConfig) *WriteEnv {
+func NewWriteEnv(output io.Writer, kw io.Writer, resetKey func(), cfg WriteConfig) *WriteEnv {
 	return &WriteEnv{
-		cfg:   cfg,
-		out:   json.NewEncoder(output),
-		key:   make([]byte, cfg.KeySize),
-		value: make([]byte, cfg.DataSize),
+		cfg:      cfg,
+		out:      json.NewEncoder(output),
+		key:      make([]byte, cfg.KeySize),
+		value:    make([]byte, cfg.DataSize),
+		kw:       kw,
+		resetKey: resetKey,
+		keych:    make(chan [][]byte, 100),
 	}
 }
 
@@ -62,6 +69,20 @@ func NewWriteEnv(output io.Writer, cfg WriteConfig) *WriteEnv {
 func (env *WriteEnv) Run(write func(key, value string, lastCall bool) error) error {
 	env.start()
 	written := uint64(0)
+
+	var (
+		keypool [][]byte
+		wg      sync.WaitGroup
+	)
+	defer func() {
+		wg.Wait()
+	}()
+
+	if env.kw != nil {
+		wg.Add(1)
+		go env.writeKey(&wg)
+	}
+
 	for {
 		env.rand.Read(env.key)
 		env.rand.Read(env.value)
@@ -69,7 +90,19 @@ func (env *WriteEnv) Run(write func(key, value string, lastCall bool) error) err
 		end := written >= env.cfg.Size
 		err := write(string(env.key), string(env.value), end)
 		if err != nil || end {
+			if err == nil {
+				keypool = append(keypool, copyBytes(env.key))
+			}
+			if len(keypool) > 0 {
+				env.keych <- keypool
+			}
+			close(env.keych)
 			return err
+		}
+		keypool = append(keypool, copyBytes(env.key))
+		if len(keypool) > 1024 {
+			env.keych <- keypool
+			keypool = make([][]byte, 0)
 		}
 	}
 }
@@ -109,5 +142,19 @@ func (env *WriteEnv) logPercentage() {
 	if pct > env.lastPercent {
 		log.Printf("%3d%%  %s\n", pct, env.cfg.TestName)
 		env.lastPercent = pct
+	}
+}
+
+func (env *WriteEnv) writeKey(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for batchKeys := range env.keych {
+		var buffer []byte
+		for _, key := range batchKeys {
+			buffer = append(buffer, key...)
+		}
+		if _, err := env.kw.Write(buffer); err != nil {
+			panic(fmt.Sprintf("failed to write keys %v", err))
+		}
 	}
 }

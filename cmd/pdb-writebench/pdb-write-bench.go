@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -93,7 +94,24 @@ func runTest(logdir, dbdir, name string, cfg bench.WriteConfig) error {
 	}
 	defer logfile.Close()
 	log.Printf("== running %q", name)
-	env := bench.NewWriteEnv(logfile, cfg)
+
+	var (
+		keyfile = path.Join(dbdir, "testing.key")
+		kw      *os.File
+	)
+	// create the keyfile directory
+	os.MkdirAll(dbdir, 0755)
+	if _, err := os.Stat(keyfile); os.IsNotExist(err) {
+		kw, err = os.Create(keyfile)
+	} else {
+		kw, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
+	}
+	if err != nil {
+		return err
+	}
+	defer kw.Close()
+
+	env := bench.NewWriteEnv(logfile, kw, nil, cfg)
 	return tests[name].Benchmark(dbdir, env)
 }
 
