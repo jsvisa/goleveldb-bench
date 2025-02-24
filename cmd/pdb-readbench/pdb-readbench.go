@@ -28,6 +28,7 @@ func main() {
 		dirflag      = flag.String("dir", ".", "test database directory")
 		logdirflag   = flag.String("logdir", ".", "test log output directory")
 		keydirflag   = flag.String("keydir", ".", "test keyfile directory")
+		randomflag   = flag.Float64("keyrandom", 10, "random key distribution")
 		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
 		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
 
@@ -65,6 +66,7 @@ func main() {
 		log.Fatal("-keysize: ", err)
 	}
 	cfg.LogPercent = true
+	cfg.RandomPercent = *randomflag
 
 	if err := os.MkdirAll(*logdirflag, 0755); err != nil {
 		log.Fatalf("can't create log dir: %v", err)

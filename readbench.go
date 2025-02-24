@@ -25,9 +25,10 @@ var (
 )
 
 type ReadConfig struct {
-	Size     uint64 `json:"size"`     // testing dataset size(pre-constructed)
-	KeySize  uint64 `json:"keysize"`  // size of each testing key
-	DataSize uint64 `json:"datasize"` // size of each testing value
+	Size          uint64  `json:"size"`           // testing dataset size(pre-constructed)
+	KeySize       uint64  `json:"keysize"`        // size of each testing key
+	DataSize      uint64  `json:"datasize"`       // size of each testing value
+	RandomPercent float64 `json:"random_percent"` // percentage of random keys (0-100)
 
 	LogPercent bool   `json:"-"`
 	TestName   string `json:"-"`
@@ -160,6 +161,8 @@ func (env *ReadEnv) readKey(result chan [][]byte, shutdown chan struct{}, wg *sy
 	if env.resetKey != nil {
 		env.resetKey()
 	}
+	// Create a new random source for selecting random keys
+	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		read, err := env.kr.Read(buffer)
 		if read == 0 {
@@ -168,7 +171,14 @@ func (env *ReadEnv) readKey(result chan [][]byte, shutdown chan struct{}, wg *sy
 		}
 		var batchKey = make([][]byte, read/int(env.cfg.KeySize))
 		for i := 0; i+int(env.cfg.KeySize) <= read; i += int(env.cfg.KeySize) {
-			batchKey[i/int(env.cfg.KeySize)] = copyBytes(buffer[i : i+int(env.cfg.KeySize)])
+			if randSource.Float64()*100 < env.cfg.RandomPercent {
+				// Generate a random key for the random percentage
+				randomKey := make([]byte, env.cfg.KeySize)
+				randSource.Read(randomKey)
+				batchKey[i/int(env.cfg.KeySize)] = randomKey
+			} else {
+				batchKey[i/int(env.cfg.KeySize)] = copyBytes(buffer[i : i+int(env.cfg.KeySize)])
+			}
 		}
 		select {
 		case result <- batchKey:
