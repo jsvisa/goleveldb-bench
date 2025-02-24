@@ -135,7 +135,6 @@ var tests = map[string]Benchmarker{
 	"batch-100kb-wb-512mb-cache-1gb": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		Options: pebble.Options{
-			// These settings approximate what geth is doing.
 			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
 			MemTableSize: 512 * bench.MiB,
 		},
@@ -151,6 +150,39 @@ var tests = map[string]Benchmarker{
 			// These settings approximate what geth is doing.
 			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
 			MemTableSize: 512 * bench.MiB,
+		},
+	},
+	"batch-100kb-wb-1gb-cache-1gb-nosync": batchWrite{
+		BatchSize: 100 * 1024,
+		wOptions:  pebble.NoSync,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1 * bench.GiB)),
+			MemTableSize: 1 * bench.GiB,
+		},
+	},
+	"batch-100kb-wb-512mb-cache-4gb-nosync": batchWrite{
+		BatchSize: 100 * 1024,
+		wOptions:  pebble.NoSync,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
+			MemTableSize: 512 * bench.MiB,
+		},
+	},
+	"batch-100kb-wb-4gb-cache-16gb-nosync": batchWrite{
+		BatchSize: 100 * 1024,
+		wOptions:  pebble.NoSync,
+		Options: pebble.Options{
+			// These settings approximate what geth is doing.
+			Cache:        pebble.NewCache(int64(16 * bench.GiB)),
+			MemTableSize: 4*bench.GiB - 1 - 1,
+		},
+	},
+	"batch-100kb-wb-4gb-cache-32gb-nosync": batchWrite{
+		BatchSize: 100 * 1024,
+		wOptions:  pebble.NoSync,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(32 * bench.GiB)),
+			MemTableSize: 4*bench.GiB - 1 - 1,
 		},
 	},
 	// "batch-100kb-ctable-64mb": batchWrite{
