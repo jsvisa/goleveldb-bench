@@ -27,6 +27,7 @@ func main() {
 		keysizeflag  = flag.String("keysize", "32b", "size of each key")
 		dirflag      = flag.String("dir", ".", "test database directory")
 		logdirflag   = flag.String("logdir", ".", "test log output directory")
+		keydirflag   = flag.String("keydir", ".", "test keyfile directory")
 		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
 		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
 
@@ -70,10 +71,14 @@ func main() {
 		log.Fatal("can't create log dir: ", err)
 	}
 
+	if err := os.MkdirAll(*keydirflag, 0755); err != nil {
+		log.Fatal("can't create key dir: ", err)
+	}
+
 	anyErr := false
 	for _, name := range run {
 		dbdir := filepath.Join(*dirflag, "testdb-"+name)
-		if err := runTest(*logdirflag, dbdir, name, cfg); err != nil {
+		if err := runTest(*logdirflag, *keydirflag, dbdir, name, cfg); err != nil {
 			log.Printf("test %q failed: %v", name, err)
 			anyErr = true
 		}
@@ -86,7 +91,7 @@ func main() {
 	}
 }
 
-func runTest(logdir, dbdir, name string, cfg bench.WriteConfig) error {
+func runTest(logdir, keydir, dbdir, name string, cfg bench.WriteConfig) error {
 	cfg.TestName = name
 	logfile, err := os.Create(filepath.Join(logdir, name+".json"))
 	if err != nil {
@@ -96,11 +101,13 @@ func runTest(logdir, dbdir, name string, cfg bench.WriteConfig) error {
 	log.Printf("== running %q", name)
 
 	var (
-		keyfile = path.Join(dbdir, "testing.key")
+		keyfile = path.Join(keydir, name, "testing.key")
 		kw      *os.File
 	)
 	// create the keyfile directory
-	os.MkdirAll(dbdir, 0755)
+	if err := os.MkdirAll(path.Join(keydir, name), 0755); err != nil {
+		return err
+	}
 	if _, err := os.Stat(keyfile); os.IsNotExist(err) {
 		kw, err = os.Create(keyfile)
 	} else {
