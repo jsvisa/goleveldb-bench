@@ -94,19 +94,23 @@ func (env *WriteEnv) Run(write func(key, value string, lastCall bool) error) err
 		end := written >= env.cfg.Size
 		err := write(string(env.key), string(env.value), end)
 		if err != nil || end {
-			if err == nil {
-				keypool = append(keypool, copyBytes(env.key))
+			if env.kw != nil {
+				if err == nil {
+					keypool = append(keypool, copyBytes(env.key))
+				}
+				if len(keypool) > 0 {
+					env.keych <- keypool
+				}
+				close(env.keych)
 			}
-			if len(keypool) > 0 {
-				env.keych <- keypool
-			}
-			close(env.keych)
 			return err
 		}
-		keypool = append(keypool, copyBytes(env.key))
-		if len(keypool) > 1024 {
-			env.keych <- keypool
-			keypool = make([][]byte, 0)
+		if env.kw != nil {
+			keypool = append(keypool, copyBytes(env.key))
+			if len(keypool) > 1024 {
+				env.keych <- keypool
+				keypool = make([][]byte, 0)
+			}
 		}
 	}
 }
