@@ -27,6 +27,7 @@ func main() {
 		keysizeflag  = flag.String("keysize", "32b", "size of each key")
 		dirflag      = flag.String("dir", ".", "test database directory")
 		logdirflag   = flag.String("logdir", ".", "test log output directory")
+		keydirflag   = flag.String("keydir", ".", "test keyfile directory")
 		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
 		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
 
@@ -77,7 +78,7 @@ func main() {
 		)
 		// The given dir points to an existent directory, assume it's
 		// an old database for read testing.
-		if isDir(*dirflag) && fileExist(filepath.Join(*dirflag, "testing.key")) {
+		if isDir(*dirflag) && fileExist(filepath.Join(*keydirflag, "testing.key")) {
 			if strings.Contains(*dirflag, "filter") != strings.Contains(name, "filter") {
 				log.Printf("Skip test %s. Incompatible database", name)
 				continue
@@ -89,7 +90,7 @@ func main() {
 		if err := os.MkdirAll(dbdir, 0755); err != nil {
 			log.Fatal("can't create keyfile dir: ", err)
 		}
-		if err := runTest(*logdirflag, dbdir, name, createdb, cfg); err != nil {
+		if err := runTest(*logdirflag, *keydirflag, dbdir, name, createdb, cfg); err != nil {
 			log.Printf("test %q failed: %v", name, err)
 			anyErr = true
 		}
@@ -102,7 +103,7 @@ func main() {
 	}
 }
 
-func runTest(logdir, dbdir, name string, createdb bool, cfg bench.ReadConfig) error {
+func runTest(logdir, keydir, dbdir, name string, createdb bool, cfg bench.ReadConfig) error {
 	cfg.TestName = name
 	logfile, err := os.Create(filepath.Join(logdir, name+time.Now().Format(".2006-01-02-15:04:05")+".json"))
 	if err != nil {
@@ -114,7 +115,7 @@ func runTest(logdir, dbdir, name string, createdb bool, cfg bench.ReadConfig) er
 		kw    io.Writer
 		kr    io.Reader
 		reset func()
-		kfile = filepath.Join(dbdir, "testing.key")
+		kfile = filepath.Join(keydir, "testing.key")
 	)
 	if !createdb {
 		keyfile, err := os.Open(kfile)
