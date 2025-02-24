@@ -189,7 +189,7 @@ func (b randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		return nil
 	}, func(key string) error {
 		value, closer, err := db.Get([]byte(key))
-		if err != nil {
+		if err != nil && err != pebble.ErrNotFound {
 			return err
 		}
 		if err := closer.Close(); err != nil {
