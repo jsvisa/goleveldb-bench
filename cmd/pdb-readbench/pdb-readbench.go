@@ -79,10 +79,6 @@ func main() {
 		// The given dir points to an existent directory, assume it's
 		// an old database for read testing.
 		if isDir(*dirflag) && fileExist(filepath.Join(*keydirflag, "testing.key")) {
-			if strings.Contains(*dirflag, "filter") != strings.Contains(name, "filter") {
-				log.Printf("Skip test %s. Incompatible database", name)
-				continue
-			}
 			dbdir = *dirflag
 		} else {
 			dbdir, createdb = filepath.Join(*dirflag, "testdb-"+name), true
