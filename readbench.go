@@ -17,11 +17,15 @@ var (
 	readCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "read_count",
 		Help: "The total number of read operations",
-	}, []string{"test"})
+	}, []string{"test", "status"})
 	readBytes = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "read_bytes",
 		Help: "The total number of bytes readed",
-	}, []string{"test"})
+	}, []string{"test", "status"})
+	readSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "read_seconds",
+		Help: "The total number of seconds taken to read",
+	}, []string{"test", "status"})
 )
 
 type ReadConfig struct {
@@ -199,9 +203,13 @@ func (env *ReadEnv) start() {
 }
 
 // Progress writes a JSON progress event to the environment's output writer.
-func (env *ReadEnv) Progress(w int) {
-	readCount.WithLabelValues(env.cfg.TestName).Inc()
-	readBytes.WithLabelValues(env.cfg.TestName).Add(float64(w))
+func (env *ReadEnv) Progress(w int, notfound bool) {
+	status := "200"
+	if notfound {
+		status = "404"
+	}
+	readCount.WithLabelValues(env.cfg.TestName, status).Inc()
+	readBytes.WithLabelValues(env.cfg.TestName, status).Add(float64(w))
 
 	now := mononow()
 	env.mu.Lock()
@@ -209,6 +217,7 @@ func (env *ReadEnv) Progress(w int) {
 	env.read += uint64(w)
 	d := now - env.lastTime
 	dw := env.read - env.lastRead
+	readSeconds.WithLabelValues(env.cfg.TestName, status).Add(float64(d.Seconds()))
 	if dw > 0 && dw > emitInterval {
 		p := Progress{Processed: env.read, Delta: dw, Duration: d}
 		env.log.Encode(&p)

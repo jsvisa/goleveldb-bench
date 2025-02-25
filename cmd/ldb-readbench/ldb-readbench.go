@@ -172,7 +172,7 @@ func (b randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		if value, err := db.Get([]byte(key), nil); err != nil {
 			return err
 		} else {
-			env.Progress(len(value))
+			env.Progress(len(value), false)
 		}
 		return nil
 	})

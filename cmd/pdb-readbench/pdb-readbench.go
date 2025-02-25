@@ -191,13 +191,15 @@ func (b randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		return nil
 	}, func(key string) error {
 		value, closer, err := db.Get([]byte(key))
-		if err != nil && err != pebble.ErrNotFound {
+		notfound := err == pebble.ErrNotFound
+		if err != nil {
+			if !notfound {
+				return err
+			}
+		} else if err := closer.Close(); err != nil {
 			return err
 		}
-		if err := closer.Close(); err != nil {
-			return err
-		}
-		env.Progress(len(value))
+		env.Progress(len(value), notfound)
 		return nil
 	})
 }
