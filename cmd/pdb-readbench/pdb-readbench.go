@@ -22,6 +22,7 @@ import (
 func main() {
 	var (
 		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
+		prefixflag   = flag.String("prefix", "", "test name prefix")
 		sizeflag     = flag.String("size", "500mb", "total amount of value data to write")
 		datasizeflag = flag.String("valuesize", "100b", "size of each value")
 		keysizeflag  = flag.String("keysize", "32b", "size of each key")
@@ -88,7 +89,7 @@ func main() {
 		if err := os.MkdirAll(dbdir, 0755); err != nil {
 			log.Fatal("can't create keyfile dir: ", err)
 		}
-		if err := runTest(*logdirflag, *keydirflag, dbdir, name, createdb, cfg); err != nil {
+		if err := runTest(*logdirflag, *keydirflag, dbdir, *prefixflag, name, createdb, cfg); err != nil {
 			log.Printf("test %q failed: %v", name, err)
 			anyErr = true
 		}
@@ -101,8 +102,8 @@ func main() {
 	}
 }
 
-func runTest(logdir, keydir, dbdir, name string, createdb bool, cfg bench.ReadConfig) error {
-	cfg.TestName = name
+func runTest(logdir, keydir, dbdir, prefix, name string, createdb bool, cfg bench.ReadConfig) error {
+	cfg.TestName = prefix + name
 	logfile, err := os.Create(filepath.Join(logdir, name+time.Now().Format(".2006-01-02-15:04:05")+".json"))
 	if err != nil {
 		return err

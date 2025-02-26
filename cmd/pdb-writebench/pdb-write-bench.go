@@ -22,6 +22,7 @@ import (
 func main() {
 	var (
 		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
+		prefixflag   = flag.String("prefix", "", "test name prefix")
 		sizeflag     = flag.String("size", "500mb", "total amount of value data to write")
 		datasizeflag = flag.String("valuesize", "100b", "size of each value")
 		keysizeflag  = flag.String("keysize", "32b", "size of each key")
@@ -78,7 +79,7 @@ func main() {
 	anyErr := false
 	for _, name := range run {
 		dbdir := filepath.Join(*dirflag, "testdb-"+name)
-		if err := runTest(*logdirflag, *keydirflag, dbdir, name, cfg); err != nil {
+		if err := runTest(*logdirflag, *keydirflag, dbdir, *prefixflag, name, cfg); err != nil {
 			log.Printf("test %q failed: %v", name, err)
 			anyErr = true
 		}
@@ -91,8 +92,8 @@ func main() {
 	}
 }
 
-func runTest(logdir, keydir, dbdir, name string, cfg bench.WriteConfig) error {
-	cfg.TestName = name
+func runTest(logdir, keydir, dbdir, prefix, name string, cfg bench.WriteConfig) error {
+	cfg.TestName = prefix + name
 	logfile, err := os.Create(filepath.Join(logdir, name+".json"))
 	if err != nil {
 		return err
