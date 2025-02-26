@@ -15,15 +15,15 @@ import (
 
 var (
 	readCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "read_count",
+		Name: "read_count_total",
 		Help: "The total number of read operations",
 	}, []string{"test", "status"})
 	readBytes = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "read_bytes",
+		Name: "read_bytes_total",
 		Help: "The total number of bytes readed",
 	}, []string{"test", "status"})
 	readSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "read_seconds",
+		Name: "read_seconds_total",
 		Help: "The total number of seconds taken to read",
 	}, []string{"test", "status"})
 )

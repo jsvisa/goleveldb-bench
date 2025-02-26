@@ -15,15 +15,15 @@ import (
 
 var (
 	writeCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "write_count",
+		Name: "write_count_total",
 		Help: "The total number of write operations",
 	}, []string{"test"})
 	writeBytes = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "write_bytes",
+		Name: "write_bytes_total",
 		Help: "The total number of bytes written",
 	}, []string{"test"})
 	writeSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "write_seconds",
+		Name: "write_seconds_total",
 		Help: "The total number of seconds taken to write",
 	}, []string{"test"})
 )
