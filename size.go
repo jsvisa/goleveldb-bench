@@ -11,6 +11,7 @@ const (
 	KiB = 1024
 	MiB = KiB * 1024
 	GiB = MiB * 1024
+	TiB = GiB * 1024
 )
 
 var sizeRE = regexp.MustCompile(`(?i)^([0-9]+)([kmg]?b)?$`)
@@ -24,11 +25,13 @@ func ParseSize(s string) (uint64, error) {
 	v, _ := strconv.ParseUint(m[1], 10, 64)
 	switch strings.ToLower(m[2]) {
 	case "kb":
-		v *= 1024
+		v *= KiB
 	case "mb":
-		v *= 1024 * 1024
+		v *= MiB
 	case "gb":
-		v *= 1024 * 1024 * 1024
+		v *= GiB
+	case "tb":
+		v *= TiB
 	}
 	return v, nil
 }
