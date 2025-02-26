@@ -92,7 +92,10 @@ func (env *WriteEnv) Run(write func(key, value string, lastCall bool) error) err
 		env.rand.Read(env.value)
 		written += env.cfg.DataSize
 		end := written >= env.cfg.Size
+		st := time.Now()
 		err := write(string(env.key), string(env.value), end)
+		writeCount.WithLabelValues(env.cfg.TestName).Inc()
+		writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
 		if err != nil || end {
 			if env.kw != nil {
 				if err == nil {
@@ -124,7 +127,6 @@ func (env *WriteEnv) start() {
 
 // LegacyWriteProgress writes a JSON progress event to the environment's output writer.
 func (env *WriteEnv) Progress(w int) {
-	writeCount.WithLabelValues(env.cfg.TestName).Inc()
 	writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(w))
 
 	now := mononow()
@@ -133,7 +135,6 @@ func (env *WriteEnv) Progress(w int) {
 	env.written += uint64(w)
 	d := now - env.lastTime
 	dw := env.written - env.lastWritten
-	writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(d.Seconds()))
 	if dw > 0 && dw > emitInterval {
 		p := Progress{Processed: env.written, Delta: dw, Duration: d}
 		env.out.Encode(&p)

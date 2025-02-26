@@ -104,7 +104,10 @@ func (env *ReadEnv) Run(write func(key, value string, lastCall bool) error, read
 
 			env.written += env.cfg.DataSize
 			end := env.written >= env.cfg.Size
+			st := time.Now()
 			err = write(string(env.key), string(env.value), end)
+			writeCount.WithLabelValues(env.cfg.TestName).Inc()
+			writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
 			if err != nil || end {
 				if err == nil {
 					keypool = append(keypool, copyBytes(env.key))
