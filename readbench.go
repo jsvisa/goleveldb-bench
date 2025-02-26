@@ -9,8 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var (
@@ -21,7 +23,7 @@ var (
 	readBytes = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "read_bytes_total",
 		Help: "The total number of bytes readed",
-	}, []string{"test", "status"})
+	}, []string{"test"})
 	readSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "read_seconds_total",
 		Help: "The total number of seconds taken to read",
@@ -132,8 +134,16 @@ func (env *ReadEnv) Run(write func(key, value string, lastCall bool) error, read
 stageTwo:
 	for keybatch := range result {
 		for _, key := range keybatch {
+			st := time.Now()
 			err = read(string(key))
-			if err != nil {
+			notfound := err == pebble.ErrNotFound || err == leveldb.ErrNotFound
+			status := "200"
+			if notfound {
+				status = "404"
+			}
+			readCount.WithLabelValues(env.cfg.TestName, status).Inc()
+			readSeconds.WithLabelValues(env.cfg.TestName, status).Add(float64(time.Since(st).Seconds()))
+			if err != nil && !notfound {
 				break stageTwo
 			}
 		}
@@ -206,21 +216,14 @@ func (env *ReadEnv) start() {
 }
 
 // Progress writes a JSON progress event to the environment's output writer.
-func (env *ReadEnv) Progress(w int, notfound bool) {
-	status := "200"
-	if notfound {
-		status = "404"
-	}
-	readCount.WithLabelValues(env.cfg.TestName, status).Inc()
-	readBytes.WithLabelValues(env.cfg.TestName, status).Add(float64(w))
-
+func (env *ReadEnv) Progress(w int) {
+	readBytes.WithLabelValues(env.cfg.TestName).Add(float64(w))
 	now := mononow()
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	env.read += uint64(w)
 	d := now - env.lastTime
 	dw := env.read - env.lastRead
-	readSeconds.WithLabelValues(env.cfg.TestName, status).Add(float64(d.Seconds()))
 	if dw > 0 && dw > emitInterval {
 		p := Progress{Processed: env.read, Delta: dw, Duration: d}
 		env.log.Encode(&p)
