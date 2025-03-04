@@ -241,7 +241,7 @@ func (b seqWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 		if err := db.Set([]byte(key), []byte(value), b.wOptions); err != nil {
 			return err
 		}
-		env.Progress(len(value))
+		env.Progress(len(key) + len(value))
 		return nil
 	})
 }

@@ -2,4 +2,5 @@
 !/vendor/vendor.json
 /testdb-*
 .idea
+*.svg
 .DS_Store
