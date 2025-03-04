@@ -28,7 +28,7 @@ func main() {
 		keysizeflag  = flag.String("keysize", "32b", "size of each key")
 		dirflag      = flag.String("dir", ".", "test database directory")
 		logdirflag   = flag.String("logdir", ".", "test log output directory")
-		keydirflag   = flag.String("keydir", ".", "test keyfile directory")
+		keydirflag   = flag.String("keydir", "", "test keyfile directory")
 		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
 		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
 
@@ -72,10 +72,6 @@ func main() {
 		log.Fatal("can't create log dir: ", err)
 	}
 
-	if err := os.MkdirAll(*keydirflag, 0755); err != nil {
-		log.Fatal("can't create key dir: ", err)
-	}
-
 	anyErr := false
 	for _, name := range run {
 		dbdir := filepath.Join(*dirflag, "testdb-"+name)
@@ -101,23 +97,27 @@ func runTest(logdir, keydir, dbdir, prefix, name string, cfg bench.WriteConfig) 
 	defer logfile.Close()
 	log.Printf("== running %q", name)
 
-	var (
-		keyfile = path.Join(keydir, name, "testing.key")
-		kw      *os.File
-	)
-	// create the keyfile directory
-	if err := os.MkdirAll(path.Join(keydir, name), 0755); err != nil {
-		return err
+	var kw *os.File
+	if keydir != "" {
+		if err := os.MkdirAll(keydir, 0755); err != nil {
+			return err
+		}
+
+		keyfile := path.Join(keydir, name, "testing.key")
+		// create the keyfile directory
+		if err := os.MkdirAll(path.Join(keydir, name), 0755); err != nil {
+			return err
+		}
+		if _, err := os.Stat(keyfile); os.IsNotExist(err) {
+			kw, err = os.Create(keyfile)
+		} else {
+			kw, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
+		}
+		if err != nil {
+			return err
+		}
+		defer kw.Close()
 	}
-	if _, err := os.Stat(keyfile); os.IsNotExist(err) {
-		kw, err = os.Create(keyfile)
-	} else {
-		kw, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
-	}
-	if err != nil {
-		return err
-	}
-	defer kw.Close()
 
 	env := bench.NewWriteEnv(logfile, kw, nil, cfg)
 	return tests[name].Benchmark(dbdir, env)
