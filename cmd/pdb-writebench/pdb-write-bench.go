@@ -136,7 +136,28 @@ var tests = map[string]Benchmarker{
 	"batch-100kb":    batchWrite{BatchSize: 100 * bench.KiB},
 	"batch-1mb":      batchWrite{BatchSize: bench.MiB},
 	"batch-5mb":      batchWrite{BatchSize: 5 * bench.MiB},
-	"batch-100kb-mt-64mb-cache-1gb": batchWrite{
+	"batch-100kb-mt-004mb-cache-1gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 4 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-008mb-cache-1gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 8 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-016mb-cache-1gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 16 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-064mb-cache-1gb": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		Options: pebble.Options{
 			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
@@ -154,6 +175,27 @@ var tests = map[string]Benchmarker{
 		BatchSize: 100 * bench.KiB,
 		Options: pebble.Options{
 			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 512 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-064mb-cache-4gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
+			MemTableSize: 64 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-256mb-cache-4gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
+			MemTableSize: 256 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-512mb-cache-4gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
 			MemTableSize: 512 * bench.MiB,
 		},
 	},
@@ -270,6 +312,8 @@ type batchWrite struct {
 }
 
 func (b batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
+	// l := pebble.MakeLoggingEventListener(nil)
+	// b.Options.EventListener = &l
 	db, err := pebble.Open(dir, &b.Options)
 	if err != nil {
 		return err
