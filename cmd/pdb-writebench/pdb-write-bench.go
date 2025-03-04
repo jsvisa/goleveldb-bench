@@ -280,7 +280,7 @@ func (b batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 	bsize := 0
 	return env.Run(func(key, value string, lastCall bool) error {
 		batch.Set([]byte(key), []byte(value), nil)
-		bsize += len(value)
+		bsize += len(key) + len(value)
 		if bsize >= b.BatchSize || lastCall {
 			if err := batch.Commit(b.wOptions); err != nil {
 				return err
@@ -320,7 +320,7 @@ func (b concurrentWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 					if err := db.Set([]byte(kv.k), []byte(kv.v), nil); err != nil {
 						return err
 					}
-					env.Progress(len(kv.v))
+					env.Progress(len(kv.k) + len(kv.v))
 				case <-ctx.Done():
 					return nil
 				}
