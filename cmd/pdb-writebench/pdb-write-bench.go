@@ -133,7 +133,21 @@ var tests = map[string]Benchmarker{
 	"batch-100kb":    batchWrite{BatchSize: 100 * bench.KiB},
 	"batch-1mb":      batchWrite{BatchSize: bench.MiB},
 	"batch-5mb":      batchWrite{BatchSize: 5 * bench.MiB},
-	"batch-100kb-wb-512mb-cache-1gb": batchWrite{
+	"batch-100kb-mt-64mb-cache-1gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 64 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-256mb-cache-1gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 256 * bench.MiB,
+		},
+	},
+	"batch-100kb-mt-512mb-cache-1gb": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		Options: pebble.Options{
 			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
@@ -144,7 +158,7 @@ var tests = map[string]Benchmarker{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 	},
-	"batch-100kb-wb-512mb-cache-1gb-nosync": batchWrite{
+	"batch-100kb-mt-512mb-cache-1gb-nosync": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 		Options: pebble.Options{
@@ -153,7 +167,7 @@ var tests = map[string]Benchmarker{
 			MemTableSize: 512 * bench.MiB,
 		},
 	},
-	"batch-100kb-wb-1gb-cache-1gb-nosync": batchWrite{
+	"batch-100kb-mt-1gb-cache-1gb-nosync": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 		Options: pebble.Options{
@@ -161,7 +175,7 @@ var tests = map[string]Benchmarker{
 			MemTableSize: 1 * bench.GiB,
 		},
 	},
-	"batch-100kb-wb-512mb-cache-4gb-nosync": batchWrite{
+	"batch-100kb-mt-512mb-cache-4gb-nosync": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 		Options: pebble.Options{
@@ -169,7 +183,7 @@ var tests = map[string]Benchmarker{
 			MemTableSize: 512 * bench.MiB,
 		},
 	},
-	"batch-100kb-wb-4gb-cache-16gb-nosync": batchWrite{
+	"batch-100kb-mt-4gb-cache-16gb-nosync": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 		Options: pebble.Options{
@@ -178,7 +192,7 @@ var tests = map[string]Benchmarker{
 			MemTableSize: 4*bench.GiB - 1 - 1,
 		},
 	},
-	"batch-100kb-wb-4gb-cache-32gb-nosync": batchWrite{
+	"batch-100kb-mt-4gb-cache-32gb-nosync": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
 		Options: pebble.Options{
