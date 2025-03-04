@@ -20,6 +20,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	MiB = bench.MiB
+	GiB = bench.GiB
+)
+
 func main() {
 	var (
 		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
@@ -131,85 +136,35 @@ type Benchmarker interface {
 }
 
 var tests = map[string]Benchmarker{
-	"nobatch":        seqWrite{},
-	"nobatch-nosync": seqWrite{wOptions: pebble.NoSync},
-	"batch-100kb":    batchWrite{BatchSize: 100 * bench.KiB},
-	"batch-1mb":      batchWrite{BatchSize: bench.MiB},
-	"batch-5mb":      batchWrite{BatchSize: 5 * bench.MiB},
-	"batch-100kb-mt-004mb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 4 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-008mb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 8 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-016mb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 16 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-064mb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 64 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-256mb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 256 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-512mb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 512 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-1gb-cache-1gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 1024 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-064mb-cache-4gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
-			MemTableSize: 64 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-256mb-cache-4gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
-			MemTableSize: 256 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-512mb-cache-4gb": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
-			MemTableSize: 512 * bench.MiB,
-		},
-	},
-	"batch-100kb-nosync": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		wOptions:  pebble.NoSync,
-	},
+	"nobatch":            seqWrite{},
+	"nobatch-nosync":     seqWrite{wOptions: pebble.NoSync},
+	"batch-100kb":        batchWrite{BatchSize: 100 * bench.KiB},
+	"batch-1mb":          batchWrite{BatchSize: bench.MiB},
+	"batch-5mb":          batchWrite{BatchSize: 5 * bench.MiB},
+	"batch-100kb-nosync": batchWrite{BatchSize: 100 * bench.KiB, wOptions: pebble.NoSync},
+
+	"batch-100kb-mt-004mb-cache-1gb": newBatchWrite(4*MiB, 1*GiB),
+	"batch-100kb-mt-008mb-cache-1gb": newBatchWrite(8*MiB, 1*GiB),
+	"batch-100kb-mt-016mb-cache-1gb": newBatchWrite(16*MiB, 1*GiB),
+	"batch-100kb-mt-064mb-cache-1gb": newBatchWrite(64*MiB, 1*GiB),
+	"batch-100kb-mt-256mb-cache-1gb": newBatchWrite(256*MiB, 1*GiB),
+	"batch-100kb-mt-512mb-cache-1gb": newBatchWrite(512*MiB, 1*GiB),
+	"batch-100kb-mt-064mb-cache-4gb": newBatchWrite(64*MiB, 4*GiB),
+	"batch-100kb-mt-256mb-cache-4gb": newBatchWrite(256*MiB, 4*GiB),
+	"batch-100kb-mt-512mb-cache-4gb": newBatchWrite(512*MiB, 4*GiB),
+
+	"batch-100kb-mt-1gb-cache-01gb": newBatchWrite(1*GiB, 1*GiB),
+	"batch-100kb-mt-1gb-cache-04gb": newBatchWrite(1*GiB, 4*GiB),
+	"batch-100kb-mt-1gb-cache-08gb": newBatchWrite(1*GiB, 8*GiB),
+	"batch-100kb-mt-2gb-cache-08gb": newBatchWrite(2*GiB, 8*GiB),
+	"batch-100kb-mt-4gb-cache-08gb": newBatchWrite(4*GiB, 8*GiB),
+	"batch-100kb-mt-1gb-cache-16gb": newBatchWrite(1*GiB, 16*GiB),
+	"batch-100kb-mt-2gb-cache-16gb": newBatchWrite(2*GiB, 16*GiB),
+	"batch-100kb-mt-4gb-cache-16gb": newBatchWrite(4*GiB, 16*GiB),
+	"batch-100kb-mt-1gb-cache-32gb": newBatchWrite(1*GiB, 32*GiB),
+	"batch-100kb-mt-2gb-cache-32gb": newBatchWrite(2*GiB, 32*GiB),
+	"batch-100kb-mt-4gb-cache-32gb": newBatchWrite(4*GiB, 32*GiB),
+
 	"batch-100kb-mt-512mb-cache-1gb-nosync": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		wOptions:  pebble.NoSync,
@@ -316,6 +271,20 @@ type batchWrite struct {
 	Options   pebble.Options
 	wOptions  *pebble.WriteOptions
 	BatchSize int
+}
+
+func newBatchWrite(mem, cache int) batchWrite {
+	// MemTableSize must be < 4.0GB
+	if mem >= 4*GiB {
+		mem -= 2
+	}
+	return batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(cache)),
+			MemTableSize: uint64(mem),
+		},
+	}
 }
 
 func (b batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
