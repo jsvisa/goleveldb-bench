@@ -178,6 +178,13 @@ var tests = map[string]Benchmarker{
 			MemTableSize: 512 * bench.MiB,
 		},
 	},
+	"batch-100kb-mt-1gb-cache-1gb": batchWrite{
+		BatchSize: 100 * bench.KiB,
+		Options: pebble.Options{
+			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
+			MemTableSize: 1024 * bench.MiB,
+		},
+	},
 	"batch-100kb-mt-064mb-cache-4gb": batchWrite{
 		BatchSize: 100 * bench.KiB,
 		Options: pebble.Options{
