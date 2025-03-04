@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -97,7 +98,7 @@ func runTest(logdir, keydir, dbdir, prefix, name string, cfg bench.WriteConfig) 
 	defer logfile.Close()
 	log.Printf("== running %q", name)
 
-	var kw *os.File
+	var kw io.Writer
 	if keydir != "" {
 		if err := os.MkdirAll(keydir, 0755); err != nil {
 			return err
@@ -108,15 +109,17 @@ func runTest(logdir, keydir, dbdir, prefix, name string, cfg bench.WriteConfig) 
 		if err := os.MkdirAll(path.Join(keydir, name), 0755); err != nil {
 			return err
 		}
+		var f *os.File
 		if _, err := os.Stat(keyfile); os.IsNotExist(err) {
-			kw, err = os.Create(keyfile)
+			f, err = os.Create(keyfile)
 		} else {
-			kw, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
+			f, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
 		}
 		if err != nil {
 			return err
 		}
-		defer kw.Close()
+		defer f.Close()
+		kw = f
 	}
 
 	env := bench.NewWriteEnv(logfile, kw, nil, cfg)
