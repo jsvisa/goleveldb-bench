@@ -138,10 +138,11 @@ type Benchmarker interface {
 var tests = map[string]Benchmarker{
 	"nobatch":            seqWrite{},
 	"nobatch-nosync":     seqWrite{wOptions: pebble.NoSync},
-	"batch-100kb":        batchWrite{BatchSize: 100 * bench.KiB},
-	"batch-1mb":          batchWrite{BatchSize: bench.MiB},
-	"batch-5mb":          batchWrite{BatchSize: 5 * bench.MiB},
-	"batch-100kb-nosync": batchWrite{BatchSize: 100 * bench.KiB, wOptions: pebble.NoSync},
+	"batch-100kb":        &batchWrite{BatchSize: 100 * bench.KiB},
+	"batch-1mb":          &batchWrite{BatchSize: bench.MiB},
+	"batch-5mb":          &batchWrite{BatchSize: 5 * bench.MiB},
+	"batch-100kb-nosync": &batchWrite{BatchSize: 100 * bench.KiB, wOptions: pebble.NoSync},
+	"concurrent":         concurrentWrite{N: 8},
 
 	"batch-100kb-mt-004mb-cache-1gb": newBatchWrite(4*MiB, 1*GiB),
 	"batch-100kb-mt-008mb-cache-1gb": newBatchWrite(8*MiB, 1*GiB),
@@ -165,77 +166,14 @@ var tests = map[string]Benchmarker{
 	"batch-100kb-mt-2gb-cache-32gb": newBatchWrite(2*GiB, 32*GiB),
 	"batch-100kb-mt-4gb-cache-32gb": newBatchWrite(4*GiB, 32*GiB),
 
-	"batch-100kb-mt-512mb-cache-1gb-nosync": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		wOptions:  pebble.NoSync,
-		Options: pebble.Options{
-			// These settings approximate what geth is doing.
-			Cache:        pebble.NewCache(int64(1024 * bench.MiB)),
-			MemTableSize: 512 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-1gb-cache-1gb-nosync": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		wOptions:  pebble.NoSync,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(1 * bench.GiB)),
-			MemTableSize: 1 * bench.GiB,
-		},
-	},
-	"batch-100kb-mt-512mb-cache-4gb-nosync": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		wOptions:  pebble.NoSync,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(4 * bench.GiB)),
-			MemTableSize: 512 * bench.MiB,
-		},
-	},
-	"batch-100kb-mt-4gb-cache-16gb-nosync": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		wOptions:  pebble.NoSync,
-		Options: pebble.Options{
-			// These settings approximate what geth is doing.
-			Cache:        pebble.NewCache(int64(16 * bench.GiB)),
-			MemTableSize: 4*bench.GiB - 1 - 1,
-		},
-	},
-	"batch-100kb-mt-4gb-cache-32gb-nosync": batchWrite{
-		BatchSize: 100 * bench.KiB,
-		wOptions:  pebble.NoSync,
-		Options: pebble.Options{
-			Cache:        pebble.NewCache(int64(32 * bench.GiB)),
-			MemTableSize: 4*bench.GiB - 1 - 1,
-		},
-	},
-	// "batch-100kb-ctable-64mb": batchWrite{
-	// 	BatchSize: 100 * 1024,
-	// 	Options:   pebble.Options{CompactionTableSize: 64 * MiB},
-	// },
-	// "batch-100kb-ctable-64mb-nosync": batchWrite{
-	// 	BatchSize: 100 * 1024,
-	// 	Options:   pebble.Options{NoSync: true, CompactionTableSize: 64 * MiB},
-	// },
-	// "batch-100kb-ctable-64mb-wb-512mb-cache-1gb": batchWrite{
-	// 	BatchSize: 100 * 1024,
-	// 	Options: pebble.Options{
-	// 		BlockCacheCapacity:  1024 * MiB,
-	// 		WriteBuffer:         512 * MiB,
-	// 		CompactionTableSize: 64 * MiB,
-	// 	},
-	// },
-	// "batch-100kb-notx": batchWrite{
-	// 	BatchSize: 1024 * 1024,
-	// 	Options:   pebble.Options{DisableLargeBatchTransaction: true},
-	// },
-	// "batch-1mb-notx": batchWrite{
-	// 	BatchSize: 1024 * 1024,
-	// 	Options:   pebble.Options{DisableLargeBatchTransaction: true},
-	// },
-	// "batch-5mb-notx": batchWrite{
-	// 	BatchSize: 5 * 1024 * 1024,
-	// 	Options:   pebble.Options{DisableLargeBatchTransaction: true},
-	// },
-	"concurrent": concurrentWrite{N: 8},
+	"batch-100kb-mt-1gb-cache-04gb-stopwrite-4": newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MemTableStopWritesThreshold = 4 }),
+	"batch-100kb-mt-1gb-cache-04gb-compact-4":   newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MaxConcurrentCompactions = func() int { return 4 } }),
+	"batch-100kb-mt-1gb-cache-04gb-openfd-10k":  newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MaxOpenFiles = 10_000 }),
+
+	"batch-100kb-mt-1gb-cache-04gb-bytespersync-1mb":    newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.BytesPerSync = 1 * MiB }),
+	"batch-100kb-mt-1gb-cache-04gb-walbytespersync-1mb": newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.WALBytesPerSync = 1 * MiB }),
+	"batch-100kb-mt-1gb-cache-04gb-maxopenfiles-10k":    newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MaxOpenFiles = 10_000 }),
+	"batch-100kb-mt-1gb-cache-04gb-lbasemaxbytes-128mb": newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.LBaseMaxBytes = 128 * MiB }),
 }
 
 func testnames() (n []string) {
@@ -268,29 +206,34 @@ func (b seqWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 }
 
 type batchWrite struct {
-	Options   pebble.Options
+	Options   *pebble.Options
 	wOptions  *pebble.WriteOptions
 	BatchSize int
 }
 
-func newBatchWrite(mem, cache int) batchWrite {
+func newBatchWrite(mem, cache int) *batchWrite {
 	// MemTableSize must be < 4.0GB
 	if mem >= 4*GiB {
 		mem -= 2
 	}
-	return batchWrite{
+	return &batchWrite{
 		BatchSize: 100 * bench.KiB,
-		Options: pebble.Options{
+		Options: &pebble.Options{
 			Cache:        pebble.NewCache(int64(cache)),
 			MemTableSize: uint64(mem),
 		},
 	}
 }
 
-func (b batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
+func (b *batchWrite) With(customize func(opt *pebble.Options)) *batchWrite {
+	customize(b.Options)
+	return b
+}
+
+func (b *batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 	// l := pebble.MakeLoggingEventListener(nil)
 	// b.Options.EventListener = &l
-	db, err := pebble.Open(dir, &b.Options)
+	db, err := pebble.Open(dir, b.Options)
 	if err != nil {
 		return err
 	}
