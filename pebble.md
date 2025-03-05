@@ -17,10 +17,6 @@ the usage is similar to `ldb-writebench`, while integrating with Prometheus metr
 
 We will utilize the pebble write benchmarks to evaluate the optimal write configuration using a small dataset (e.g., 5GB).
 
-```bash
-pdb-writebench -size 5gb -logdir datasets/pebble-write-test -prefix 5gb: -test batch-100kb,batch-100kb-nosync,batch-100kb-wb-1gb-cache-1gb-nosync,batch-100kb-wb-4gb-cache-16gb-nosync,batch-100kb-wb-4gb-cache-32gb-nosync,batch-100kb-wb-512mb-cache-1gb,batch-100kb-wb-512mb-cache-1gb-nosync,batch-100kb-wb-512mb-cache-4gb-nosync,batch-1mb,batch-5mb,concurrent,nobatch,nobatch-nosync -dir /md0/pebble-write-test -keydir /md2/pebble-write-test-key
-```
-
 After the benchmark, we generate the write benchmark results with the following command:
 
 ```bash
@@ -52,35 +48,7 @@ General Observations:
 - Performance improvement with caching and No Sync, the benchmarks show a significant improvement in performance when using caching and disabling sync operations.
 - Cache size is not the larger the better, the benchmarks show that 1gb cache is faster than 4gb or higher cache, but I'm not sure why this happens.
 
-As a result, the best write configuration is `batch-100kb-wb-4gb-cache-16gb-nosync` with 25.051 MB/s and a smaller std deviation, so we try to test with a larger dataset to see if the result is consistent.
-
-```bash
-mkdir -p datasets/pebble/
-for size in 1 10 50 100 500; do
-    pdb-writebench -size ${size}gb -logdir datasets/pebble/pb-${size}gb -prefix ${size}gb: -test batch-100kb-wb-4gb-cache-16gb-nosync -dir /md0/pebble/pb-data-${size}gb -keydir /md1/pb-data-${size}gb-key
-done
-```
-
-The write results are as follows:
-
-| Benchmark | Time        | Mean MB/s          |
-| --------- | ----------- | ------------------ |
-| 1gb       | 32.5504s    | 31.448 (+- 10.992) |
-| 10gb      | 447.7099s   | 22.872 (+- 7.391)  |
-| 50gb      | 2270.9244s  | 22.546 (+- 6.634)  |
-| 100gb     | 4587.8367s  | 22.320 (+- 6.873)  |
-| 500gb     | 40861.1194s | 12.530 (+- 12.231) |
-
-As the dataset size increases, the write performance decreases. For the 500gb testcase, let's see the write time collected by Prometheus in grafana:
-
-![image-20250302074228122](assets/image-20250302074228122.png)
-
-We can see the write time is not stable, as the dataset increases, the maximum write time is 67 times bigger than the mean one, this maybe caused by the compaction process.
-
-**TODO:**
-
-1. Pebble has itself benchmark tool `pebble bench`, we can use it to test the write performance as well.
-2. Adjust the other options for the write benchmark to see if there is a better configuration, eg: open files, L0 and other levels configuration.
+As a result, the best write configuration is `batch-100kb-wb-512mb-cache-1gb-nosync` we try to test with a larger dataset to see if the result is consistent.
 
 ### write 10gb with different memeory table size
 
@@ -172,7 +140,38 @@ General Observations:
 
 1. Cache size is not the bigger the better, 4GB and 8GB is a proper good option
 
-TODO: test with a larger dataset (100GB)
+Then let's test with a larger dataset (100GB)
+
+![image-20250305095747121](assets/image-20250305095747121.png)
+
+| Benchmark | Time       | Mean MB/s         |
+| --------- | ---------- | ----------------- |
+| 1gb-04gb  | 6559.6107s | 15.611 (+- 6.965) |
+| 1gb-08gb  | 7074.2569s | 14.475 (+- 5.960) |
+| 4gb-16gb  | 7292.5680s | 14.042 (+- 5.088) |
+| 4gb-32gb  | 7479.5316s | 13.691 (+- 5.038) |
+
+General Observations:
+
+1. The result is similar to the 10GB dataset, the cache size is not the bigger the better, 4GB and 8GB is a proper good option
+
+Let's test with other write related options:
+
+1. MemTableStopWritesThreshold: stop write if sum(memtable size) > MemTableStopWritesThreshold \* MemTableSize, default is 2
+2. MaxConcurrentCompactions: default is 1
+3. BytesPerSync: sync sstables periodically in order to smooth out writes to disk, default 512KB
+4. WALBytesPerSync: sets the number of bytes to write to a WAL before calling Sync on it in the background, default is 0, no background sync
+5. MaxOpenFiles: default is 1000
+6. LBaseMaxBytes: the maximum number of bytes for LBase. The base level is the level which L0 is compacted into. default is 64MB
+
+![image-20250305123702135](assets/image-20250305123702135.png)
+
+From the results, we can see those other options are bad to the write performance, let's explain more on the read-write benchmark. 
+
+### Conclusions
+
+1. For write heave workloads, set with 1GB MemTableSize and 4GB CacheSize is a better options
+2. Pebble's write performance is stable on the written data size, no matter it's 10GB or 100GB
 
 ## Read benchmarks
 
