@@ -197,7 +197,7 @@ func (b randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		} else if err := closer.Close(); err != nil {
 			return err
 		}
-		env.Progress(len(value))
+		env.Progress(len(key) + len(value))
 		return nil
 	})
 }
