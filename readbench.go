@@ -142,11 +142,12 @@ stageTwo:
 			notfound := err == pebble.ErrNotFound || err == leveldb.ErrNotFound
 			status := "200"
 			if notfound {
+				err = nil
 				status = "404"
 			}
 			readCount.WithLabelValues(env.cfg.TestName, status).Inc()
 			readSeconds.WithLabelValues(env.cfg.TestName, status).Add(float64(time.Since(st).Seconds()))
-			if err != nil && !notfound {
+			if err != nil {
 				break stageTwo
 			}
 		}
