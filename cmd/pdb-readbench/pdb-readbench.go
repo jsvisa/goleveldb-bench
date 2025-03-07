@@ -145,17 +145,21 @@ type Benchmarker interface {
 }
 
 var tests = map[string]Benchmarker{
-	"random-read": randomRead{},
-	"random-read-filter": randomRead{Options: pebble.Options{
+	"random-read": &randomRead{},
+	"random-read-filter": &randomRead{Options: &pebble.Options{
 		Levels: []pebble.LevelOptions{{TargetFileSize: 2 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)}},
 	}},
-	"random-read-bigcache": randomRead{Options: pebble.Options{
-		Cache: pebble.NewCache(int64(10 * bench.GiB)),
-	}},
-	"random-read-bigcache-filter": randomRead{Options: pebble.Options{
+	"random-read-bigcache-filter": &randomRead{Options: &pebble.Options{
 		Levels: []pebble.LevelOptions{{TargetFileSize: 2 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)}},
 		Cache:  pebble.NewCache(int64(10 * bench.GiB)),
 	}},
+
+	"random-read-cache-01gb": newRandomRead(1 * bench.GiB),
+	"random-read-cache-04gb": newRandomRead(4 * bench.GiB),
+	"random-read-cache-08gb": newRandomRead(8 * bench.GiB),
+	"random-read-cache-10gb": newRandomRead(10 * bench.GiB),
+	"random-read-cache-20gb": newRandomRead(20 * bench.GiB),
+	"random-read-cache-30gb": newRandomRead(30 * bench.GiB),
 }
 
 func testnames() (n []string) {
@@ -167,11 +171,24 @@ func testnames() (n []string) {
 }
 
 type randomRead struct {
-	Options pebble.Options
+	Options *pebble.Options
 }
 
-func (b randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
-	db, err := pebble.Open(dir, &b.Options)
+func newRandomRead(cache int) *randomRead {
+	return &randomRead{
+		Options: &pebble.Options{
+			Cache: pebble.NewCache(int64(cache)),
+		},
+	}
+}
+
+func (b *randomRead) With(customize func(opt *pebble.Options)) *randomRead {
+	customize(b.Options)
+	return b
+}
+
+func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
+	db, err := pebble.Open(dir, b.Options)
 	if err != nil {
 		return err
 	}
