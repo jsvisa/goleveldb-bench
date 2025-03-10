@@ -113,27 +113,24 @@ func runTest(logdir, keydir, dbdir, prefix, name string, createdb bool, cfg benc
 	var (
 		kw    io.Writer
 		kr    io.Reader
-		reset func()
+		kf    *os.File
 		kfile = filepath.Join(keydir, "testing.key")
 	)
 	if !createdb {
-		keyfile, err := os.Open(kfile)
+		kf, err = os.Open(kfile)
 		if err != nil {
 			return err
 		}
-		defer keyfile.Close()
-		kr = keyfile
+		kr = kf
 	} else {
-		keyfile, err := os.Create(kfile)
+		kf, err = os.Create(kfile)
 		if err != nil {
 			return err
 		}
-		defer keyfile.Close()
-		kw, kr = keyfile, keyfile
-		reset = func() {
-			keyfile.Seek(0, io.SeekStart)
-		}
+		kw, kr = kf, kf
 	}
+	defer kf.Close()
+	reset := func() { kf.Seek(0, io.SeekStart) }
 
 	log.Printf("== running %q", name)
 	env := bench.NewReadEnv(logfile, kr, kw, reset, cfg)
