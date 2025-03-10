@@ -183,6 +183,11 @@ func (env *ReadEnv) readKey(result chan [][]byte, shutdown chan struct{}, wg *sy
 	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		read, err := env.kr.Read(buffer)
+		if read == 0 && env.resetKey != nil {
+			// reset the key to read more
+			env.resetKey()
+			continue
+		}
 		env.mu.Lock()
 		end := env.read >= env.cfg.Size
 		env.mu.Unlock()
