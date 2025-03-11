@@ -166,7 +166,7 @@ Let's test with other write related options:
 
 ![image-20250305123702135](assets/image-20250305123702135.png)
 
-From the results, we can see those other options are bad to the write performance, let's explain more on the read-write benchmark. 
+From the results, we can see those other options are bad to the write performance, let's explain more on the read-write benchmark.
 
 ### Conclusions
 
@@ -175,7 +175,9 @@ From the results, we can see those other options are bad to the write performanc
 
 ## Read benchmarks
 
-We need to test the real PebbleDB workload in geth, so we use the `geth import` command to import the Ethereum blockchain data, and collect the pebble's read and write metrics with Prometheus,
+Next, we need to measure the read performance of all the read metrics.
+
+Here, we first need to test the real PebbleDB workload in geth, so we use the `geth import` command to import the Ethereum blockchain data, and collect the pebble's read and write metrics with Prometheus,
 refer to https://github.com/jsvisa/go-ethereum/blob/db-metrics/ethdb/pebble/pebble.go#L38-L63.
 
 The below grafana dashboard shows the read and write performace of PebbleDB in geth:
@@ -190,8 +192,31 @@ The below grafana dashboard shows the read and write performace of PebbleDB in g
 
 From the dashboard, we can see the mean read count is 8650, while the mean write count is 60, which is much higher than the write case, and the mean read time is similar to the write time, so we need to put more effort into the read benchmarks.
 
-TODO
+We start with some simple testcases, for the read testcases, we first write 10GB data into the pebble, and then reuse this dataset to test different read options:
 
-```
+1. random-read: with pebble's default options
+2. random-read-filter: set Level0 filter policy
+3. random-read-bigcache: set 10GB cache size
+4. random-read-bigcache-filter: set 10GB cache size + Level0 filter policy
+5. pebble-read: with [cmd/pebble/db.go](https://github.com/cockroachdb/pebble/blob/12f37e4409a40a31c1700369d6630b168960afcc/cmd/pebble/db.go#L57-L132)'s configuration
 
-```
+The results as below:
+
+![image-20250311083636650](assets/image-20250311083636650.png)
+
+General Observations:
+
+1. the `bigcache` 's perfromance is way better than the default cache size(8MB) 
+2. cmd/pebble's read performace is better then the others
+
+Next, let's test the same dbsize with different cache size:
+
+![image-20250306231127083](assets/image-20250306231127083.png)
+
+Except for the 1gb cache, the others performace are similar.
+
+Let's test the same cache size for different db size:
+
+![image-20250307142437775](assets/image-20250307142437775.png)
+
+The larger the db is, the read performace is worse, we need to test with a more larger db instead.
