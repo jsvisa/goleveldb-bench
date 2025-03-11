@@ -157,6 +157,32 @@ var tests = map[string]Benchmarker{
 	"random-read-cache-10gb": newRandomRead(10 * bench.GiB),
 	"random-read-cache-20gb": newRandomRead(20 * bench.GiB),
 	"random-read-cache-30gb": newRandomRead(30 * bench.GiB),
+
+	"pebble-read": newRandomRead(1 * bench.GiB).With(func(opt *pebble.Options) {
+		opt.L0CompactionThreshold = 2
+		opt.L0StopWritesThreshold = 1000
+		opt.LBaseMaxBytes = 64 << 20 // 64 MB
+		opt.Levels = make([]pebble.LevelOptions, 7)
+		opt.MaxOpenFiles = 16384
+		opt.MemTableSize = 64 << 20
+		opt.MemTableStopWritesThreshold = 4
+		opt.MaxConcurrentCompactions = func() int { return 3 }
+
+		for i := 0; i < len(opt.Levels); i++ {
+			l := &opt.Levels[i]
+			l.BlockSize = 32 << 10       // 32 KB
+			l.IndexBlockSize = 256 << 10 // 256 KB
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			l.FilterType = pebble.TableFilter
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Levels[6].FilterPolicy = nil
+		opt.FlushSplitBytes = opt.Levels[0].TargetFileSize
+		opt.EnsureDefaults()
+	}),
 }
 
 func testnames() (n []string) {
