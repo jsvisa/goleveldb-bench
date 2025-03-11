@@ -215,8 +215,25 @@ Next, let's test the same dbsize with different cache size:
 
 Except for the 1gb cache, the others performace are similar.
 
-Let's test the same cache size for different db size:
+Let's test with the pebble-read testcase for different db size:
 
-![image-20250307142437775](assets/image-20250307142437775.png)
+- 10gb
+- 50gb
+- 100gb
+- 500gb
+
+The result as below:
+
+![image-20250311105951013](assets/image-20250311105951013.png)
 
 The larger the db is, the read performace is worse, we need to test with a more larger db instead.
+
+
+
+
+
+Test on a 100GB dbsize with different cache size:
+
+![image-20250311115611864](assets/image-20250311115611864.png)
+
+Excpet for the 1GB cache, the other's read performace are good, and the larger the cache size, the better read performnce 
