@@ -158,7 +158,30 @@ var tests = map[string]Benchmarker{
 	"random-read-cache-20gb": newRandomRead(20 * bench.GiB),
 	"random-read-cache-30gb": newRandomRead(30 * bench.GiB),
 
-	"pebble-read": newRandomRead(1 * bench.GiB).With(func(opt *pebble.Options) {
+	"pebble-read": newPebbleRead(1 * bench.GiB),
+
+	"pebble-read-cache-01gb": newPebbleRead(1 * bench.GiB),
+	"pebble-read-cache-04gb": newPebbleRead(4 * bench.GiB),
+	"pebble-read-cache-08gb": newPebbleRead(8 * bench.GiB),
+	"pebble-read-cache-10gb": newPebbleRead(10 * bench.GiB),
+	"pebble-read-cache-20gb": newPebbleRead(20 * bench.GiB),
+	"pebble-read-cache-30gb": newPebbleRead(30 * bench.GiB),
+}
+
+func testnames() (n []string) {
+	for name := range tests {
+		n = append(n, name)
+	}
+	sort.Strings(n)
+	return n
+}
+
+type randomRead struct {
+	Options *pebble.Options
+}
+
+func newPebbleRead(cache int) *randomRead {
+	return newRandomRead(cache).With(func(opt *pebble.Options) {
 		opt.L0CompactionThreshold = 2
 		opt.L0StopWritesThreshold = 1000
 		opt.LBaseMaxBytes = 64 << 20 // 64 MB
@@ -182,19 +205,7 @@ var tests = map[string]Benchmarker{
 		opt.Levels[6].FilterPolicy = nil
 		opt.FlushSplitBytes = opt.Levels[0].TargetFileSize
 		opt.EnsureDefaults()
-	}),
-}
-
-func testnames() (n []string) {
-	for name := range tests {
-		n = append(n, name)
-	}
-	sort.Strings(n)
-	return n
-}
-
-type randomRead struct {
-	Options *pebble.Options
+	})
 }
 
 func newRandomRead(cache int) *randomRead {
@@ -216,6 +227,13 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		return err
 	}
 	defer db.Close()
+
+	// limit := bytes.Repeat([]byte{0xff}, 32)
+	// db.Compact(nil, limit, true)
+
+	done := make(chan struct{})
+	go metric(db, done)
+	defer func() { done <- struct{}{} }()
 
 	batch := db.NewBatch()
 	bsize := 0
@@ -240,6 +258,21 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		env.Progress(len(value))
 		return nil
 	})
+}
+
+func metric(db *pebble.DB, done chan struct{}) {
+	timer := time.NewTicker(90 * time.Second)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-timer.C:
+			metrics := db.Metrics()
+			log.Printf("Metrics: \n-------------------------------------------------------------------------------------------------------------------\n%+v\n", metrics)
+		}
+	}
 }
 
 func fileExist(path string) bool {
