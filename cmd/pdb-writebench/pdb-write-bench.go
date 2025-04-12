@@ -27,16 +27,16 @@ const (
 
 func main() {
 	var (
-		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
-		prefixflag   = flag.String("prefix", "", "test name prefix")
-		sizeflag     = flag.String("size", "500mb", "total amount of value data to write")
-		datasizeflag = flag.String("valuesize", "100b", "size of each value")
-		keysizeflag  = flag.String("keysize", "32b", "size of each key")
-		dirflag      = flag.String("dir", ".", "test database directory")
-		logdirflag   = flag.String("logdir", ".", "test log output directory")
-		keydirflag   = flag.String("keydir", "", "test keyfile directory")
-		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
-		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
+		testflag      = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
+		prefixflag    = flag.String("prefix", "", "test name prefix")
+		sizeflag      = flag.String("size", "500mb", "total amount of value data to write")
+		valuesizeflag = flag.String("valuesize", "100b", "size of each value")
+		keysizeflag   = flag.String("keysize", "32b", "size of each key")
+		dirflag       = flag.String("dir", ".", "test database directory")
+		logdirflag    = flag.String("logdir", ".", "test log output directory")
+		keydirflag    = flag.String("keydir", "", "test keyfile directory")
+		deletedbflag  = flag.Bool("deletedb", false, "delete databases after test run")
+		metricsAddr   = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
 
 		run []string
 		cfg bench.WriteConfig
@@ -66,8 +66,8 @@ func main() {
 	if cfg.Size, err = bench.ParseSize(*sizeflag); err != nil {
 		log.Fatal("-size: ", err)
 	}
-	if cfg.DataSize, err = bench.ParseSize(*datasizeflag); err != nil {
-		log.Fatal("-datasize: ", err)
+	if cfg.ValueSize, err = bench.ParseSize(*valuesizeflag); err != nil {
+		log.Fatal("-valuesize: ", err)
 	}
 	if cfg.KeySize, err = bench.ParseSize(*keysizeflag); err != nil {
 		log.Fatal("-keysize: ", err)

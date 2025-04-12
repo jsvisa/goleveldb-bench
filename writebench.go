@@ -31,9 +31,9 @@ var (
 const emitInterval = 500 * 1024 // bytes
 
 type WriteConfig struct {
-	Size     uint64 `json:"size"`     // total size of values to write
-	KeySize  uint64 `json:"keysize"`  // size of each key written
-	DataSize uint64 `json:"datasize"` // size of each value written
+	Size      uint64 `json:"size"`      // total size of values to write
+	KeySize   uint64 `json:"keysize"`   // size of each key written
+	ValueSize uint64 `json:"valuesize"` // size of each value written
 
 	LogPercent bool   `json:"-"`
 	TestName   string `json:"-"`
@@ -60,7 +60,7 @@ func NewWriteEnv(output io.Writer, kw io.Writer, resetKey func(), cfg WriteConfi
 		cfg:      cfg,
 		out:      json.NewEncoder(output),
 		key:      make([]byte, cfg.KeySize),
-		value:    make([]byte, cfg.DataSize),
+		value:    make([]byte, cfg.ValueSize),
 		kw:       kw,
 		resetKey: resetKey,
 		keych:    make(chan [][]byte, 100),
@@ -90,7 +90,7 @@ func (env *WriteEnv) Run(write func(key, value string, lastCall bool) error) err
 	for {
 		env.rand.Read(env.key)
 		env.rand.Read(env.value)
-		written += env.cfg.KeySize + env.cfg.DataSize
+		written += env.cfg.KeySize + env.cfg.ValueSize
 		end := written >= env.cfg.Size
 		st := time.Now()
 		err := write(string(env.key), string(env.value), end)
