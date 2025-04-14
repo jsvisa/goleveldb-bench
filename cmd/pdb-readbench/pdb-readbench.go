@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -151,6 +152,9 @@ var tests = map[string]Benchmarker{
 		Cache:  pebble.NewCache(int64(10 * bench.GiB)),
 	}},
 
+	"geth-read-cache-02gb": newGethRead(2 * bench.GiB),
+	"geth-read-cache-20gb": newGethRead(20 * bench.GiB),
+
 	"random-read-cache-01gb": newRandomRead(1 * bench.GiB),
 	"random-read-cache-04gb": newRandomRead(4 * bench.GiB),
 	"random-read-cache-08gb": newRandomRead(8 * bench.GiB),
@@ -178,6 +182,46 @@ func testnames() (n []string) {
 
 type randomRead struct {
 	Options *pebble.Options
+}
+
+func newGethRead(cache int) *randomRead {
+	opt := &pebble.Options{
+		// Pebble has a single combined cache area and the write
+		// buffers are taken from this too. Assign all available
+		// memory allowance for cache.
+		Cache: pebble.NewCache(int64(cache)),
+
+		// The size of memory table(as well as the write buffer).
+		// Note, there may have more than two memory tables in the system.
+		MemTableSize: uint64(4*bench.GiB - 2),
+
+		// MemTableStopWritesThreshold places a hard limit on the size
+		// of the existent MemTables(including the frozen one).
+		// Note, this must be the number of tables not the size of all memtables
+		// according to https://github.com/cockroachdb/pebble/blob/master/options.go#L738-L742
+		// and to https://github.com/cockroachdb/pebble/blob/master/db.go#L1892-L1903.
+		MemTableStopWritesThreshold: 2,
+
+		// The default compaction concurrency(1 thread),
+		// Here use all available CPUs for faster compaction.
+		MaxConcurrentCompactions: runtime.NumCPU,
+
+		// Per-level options. Options for at least one level must be specified. The
+		// options for the last level are used for all subsequent levels.
+		Levels: []pebble.LevelOptions{
+			{TargetFileSize: 2 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 4 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 8 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 16 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 32 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 64 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 128 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+		},
+	}
+	opt.Experimental.ReadSamplingMultiplier = -1
+	return &randomRead{
+		Options: opt,
+	}
 }
 
 func newPebbleRead(cache int) *randomRead {
