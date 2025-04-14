@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,16 +34,16 @@ const emitInterval = 500 * 1024 // bytes
 
 // SizeDistribution defines the distribution of sizes for keys or values
 type SizeDistribution struct {
-	Size1     int     `json:"size1"`     // First fixed size
-	Size2     int     `json:"size2"`     // Second fixed size
-	MaxRandom int     `json:"maxRandom"` // Maximum size for random values
+	Size1     uint64  `json:"size1"`     // First fixed size
+	Size2     uint64  `json:"size2"`     // Second fixed size
+	MaxRandom uint64  `json:"maxRandom"` // Maximum size for random values
 	Prob1     float64 `json:"prob1"`     // Probability of size1 (0-1)
 	Prob2     float64 `json:"prob2"`     // Probability of size2 (0-1)
 	// Probability of random size is 1 - prob1 - prob2
 }
 
 type WriteConfig struct {
-	Size      uint64           `json:"size"`      // total size of key-value pairs to write
+	Size      uint64           `json:"size"`      // total size of key-values to write
 	KeyDist   SizeDistribution `json:"keyDist"`   // key size distribution
 	ValueDist SizeDistribution `json:"valueDist"` // value size distribution
 
@@ -66,14 +68,14 @@ type WriteEnv struct {
 }
 
 // getRandomSize returns a size based on the specified distribution
-func getRandomSize(dist SizeDistribution) int {
+func getRandomSize(dist SizeDistribution) uint64 {
 	r := rand.Float64()
 	if r < dist.Prob1 {
 		return dist.Size1
 	} else if r < dist.Prob1+dist.Prob2 {
 		return dist.Size2
 	} else {
-		return rand.Intn(dist.MaxRandom) + 1
+		return uint64(rand.Intn(int(dist.MaxRandom))) + 1
 	}
 }
 
@@ -201,4 +203,57 @@ func (env *WriteEnv) writeKey(wg *sync.WaitGroup) {
 			panic(fmt.Sprintf("failed to write keys %v", err))
 		}
 	}
+}
+
+// ParseSizeDistribution parses a string in the format "size:probability,size:probability,size:probability"
+// into a SizeDistribution struct. The string should contain exactly 3 parts.
+// Example: "32b:0.5,65b:0.3,100b:0.2"
+func ParseSizeDistribution(distStr string) (SizeDistribution, error) {
+	parts := strings.Split(distStr, ",")
+	if len(parts) != 3 {
+		return SizeDistribution{}, fmt.Errorf("invalid distribution format, expected 3 parts")
+	}
+
+	var dist SizeDistribution
+	var totalProb float64
+
+	for i, part := range parts {
+		subparts := strings.Split(part, ":")
+		if len(subparts) != 2 {
+			return SizeDistribution{}, fmt.Errorf("invalid part format: %s", part)
+		}
+
+		size, err := ParseSize(subparts[0])
+		if err != nil {
+			return SizeDistribution{}, fmt.Errorf("invalid size in part %d: %v", i, err)
+		}
+
+		prob, err := strconv.ParseFloat(subparts[1], 64)
+		if err != nil {
+			return SizeDistribution{}, fmt.Errorf("invalid probability in part %d: %v", i, err)
+		}
+
+		if prob < 0 || prob > 1 {
+			return SizeDistribution{}, fmt.Errorf("probability must be between 0 and 1 in part %d", i)
+		}
+
+		totalProb += prob
+
+		switch i {
+		case 0:
+			dist.Size1 = size
+			dist.Prob1 = prob
+		case 1:
+			dist.Size2 = size
+			dist.Prob2 = prob
+		case 2:
+			dist.MaxRandom = size
+		}
+	}
+
+	if totalProb > 1.0 {
+		return SizeDistribution{}, fmt.Errorf("total probability exceeds 1.0")
+	}
+
+	return dist, nil
 }
