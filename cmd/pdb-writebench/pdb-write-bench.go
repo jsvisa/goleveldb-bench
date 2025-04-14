@@ -30,8 +30,8 @@ func main() {
 		testflag      = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
 		prefixflag    = flag.String("prefix", "", "test name prefix")
 		sizeflag      = flag.String("size", "500mb", "total amount of value data to write")
-		valuesizeflag = flag.String("valuesize", "100b", "size of each value")
-		keysizeflag   = flag.String("keysize", "32b", "size of each key")
+		valuedistflag = flag.String("value-dist", "3b:0.31,4b:0.16,1b:0.05,33b:0.05,83b:0.05,128b:0.32", "value size distribution (size:prob,size:prob,...)")
+		keydistflag   = flag.String("key-dist", "33b:0.4,65b:0.2,38b:0.1,39b:0.1,65b:0.2", "key size distribution (size:prob,size:prob,...)")
 		dirflag       = flag.String("dir", ".", "test database directory")
 		logdirflag    = flag.String("logdir", ".", "test log output directory")
 		keydirflag    = flag.String("keydir", "", "test keyfile directory")
@@ -66,11 +66,11 @@ func main() {
 	if cfg.Size, err = bench.ParseSize(*sizeflag); err != nil {
 		log.Fatal("-size: ", err)
 	}
-	if cfg.ValueSize, err = bench.ParseSize(*valuesizeflag); err != nil {
-		log.Fatal("-valuesize: ", err)
+	if cfg.ValueDist, err = bench.ParseSizeDistribution(*valuedistflag); err != nil {
+		log.Fatal("-value-dist: ", err)
 	}
-	if cfg.KeySize, err = bench.ParseSize(*keysizeflag); err != nil {
-		log.Fatal("-keysize: ", err)
+	if cfg.KeyDist, err = bench.ParseSizeDistribution(*keydistflag); err != nil {
+		log.Fatal("-key-dist: ", err)
 	}
 	cfg.LogPercent = true
 

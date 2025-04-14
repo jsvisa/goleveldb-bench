@@ -44,12 +44,26 @@ func main() {
 	if cfg.Size, err = bench.ParseSize(*sizeflag); err != nil {
 		log.Fatal("-size: ", err)
 	}
-	if cfg.ValueSize, err = bench.ParseSize(*valuesizeflag); err != nil {
+	valueSize, err := bench.ParseSize(*valuesizeflag)
+	if err != nil {
 		log.Fatal("-valuesize: ", err)
 	}
-	if cfg.KeySize, err = bench.ParseSize(*keysizeflag); err != nil {
+	cfg.ValueDist = bench.SizeDistribution{
+		Sizes:     []uint64{valueSize},
+		Probs:     []float64{1.0},
+		MaxRandom: valueSize,
+	}
+
+	keySize, err := bench.ParseSize(*keysizeflag)
+	if err != nil {
 		log.Fatal("-keysize: ", err)
 	}
+	cfg.KeyDist = bench.SizeDistribution{
+		Sizes:     []uint64{keySize},
+		Probs:     []float64{1.0},
+		MaxRandom: keySize,
+	}
+
 	cfg.LogPercent = true
 
 	if err := os.MkdirAll(*logdirflag, 0755); err != nil {
