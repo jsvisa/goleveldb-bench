@@ -214,6 +214,7 @@ func (env *WriteEnv) writeKey(wg *sync.WaitGroup) {
 		var buffer []byte
 		for _, key := range batchKeys {
 			buffer = append(buffer, key...)
+			buffer = append(buffer, '\n')
 		}
 		if _, err := env.kw.Write(buffer); err != nil {
 			panic(fmt.Sprintf("failed to write keys %v", err))

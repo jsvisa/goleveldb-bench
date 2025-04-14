@@ -115,7 +115,7 @@ func runTest(logdir, keydir, dbdir, prefix, name string, cfg bench.WriteConfig) 
 			return err
 		}
 		var f *os.File
-		if _, err := os.Stat(keyfile); os.IsNotExist(err) {
+		if _, iErr := os.Stat(keyfile); os.IsNotExist(iErr) {
 			f, err = os.Create(keyfile)
 		} else {
 			f, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
@@ -275,7 +275,7 @@ func (b concurrentWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 		outerCtx, cancel = context.WithCancel(context.Background())
 		eg, ctx          = errgroup.WithContext(outerCtx)
 	)
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		eg.Go(func() error {
 			for {
 				select {

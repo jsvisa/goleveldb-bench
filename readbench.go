@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -165,6 +166,7 @@ func (env *ReadEnv) writeKey(wg *sync.WaitGroup) {
 		var buffer []byte
 		for _, key := range batchKeys {
 			buffer = append(buffer, key...)
+			buffer = append(buffer, '\n')
 		}
 		if _, err := env.kw.Write(buffer); err != nil {
 			panic(fmt.Sprintf("failed to write keys %v", err))
@@ -175,47 +177,64 @@ func (env *ReadEnv) writeKey(wg *sync.WaitGroup) {
 func (env *ReadEnv) readKey(result chan [][]byte, shutdown chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	var buffer = make([]byte, env.cfg.KeySize*1024)
+	// Create a new random source for selecting random keys
+	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	if env.resetKey != nil {
 		env.resetKey()
 	}
-	// Create a new random source for selecting random keys
-	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for {
-		read, err := env.kr.Read(buffer)
-		if read == 0 && env.resetKey != nil {
-			// reset the key to read more
-			env.resetKey()
-			continue
+
+	const batchSize = 1024
+	batchKey := make([][]byte, 0, batchSize)
+	scanner := bufio.NewScanner(env.kr)
+	for scanner.Scan() {
+		key := scanner.Bytes()
+		if len(key) == 0 {
+			if env.resetKey != nil {
+				env.resetKey()
+				continue
+			}
+			break
 		}
+
 		env.mu.Lock()
 		end := env.read >= env.cfg.Size
 		env.mu.Unlock()
-		if read == 0 || end {
-			close(result)
-			return
+		if end {
+			break
 		}
-		var batchKey = make([][]byte, read/int(env.cfg.KeySize))
-		for i := 0; i+int(env.cfg.KeySize) <= read; i += int(env.cfg.KeySize) {
-			if randSource.Float64()*100 < env.cfg.RandomPercent {
-				// Generate a random key for the random percentage
-				randomKey := make([]byte, env.cfg.KeySize)
-				randSource.Read(randomKey)
-				batchKey[i/int(env.cfg.KeySize)] = randomKey
-			} else {
-				batchKey[i/int(env.cfg.KeySize)] = copyBytes(buffer[i : i+int(env.cfg.KeySize)])
+
+		if randSource.Float64()*100 < env.cfg.RandomPercent {
+			// Generate a random key for the random percentage
+			randomKey := make([]byte, env.cfg.KeySize)
+			randSource.Read(randomKey)
+			batchKey = append(batchKey, randomKey)
+		} else {
+			batchKey = append(batchKey, copyBytes(key))
+		}
+
+		if len(batchKey) >= batchSize {
+			select {
+			case result <- batchKey:
+				batchKey = make([][]byte, 1024)
+			case <-shutdown:
+				return
 			}
 		}
+	}
+
+	// Send any remaining keys in the last batch
+	if remains := len(batchKey); remains > 0 {
 		select {
-		case result <- batchKey:
+		case result <- batchKey[:remains]:
 		case <-shutdown:
 			return
 		}
-		if err != nil {
-			close(result)
-			return
-		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Error reading keys: %v", err)
+	}
+	close(result)
 }
 
 func (env *ReadEnv) start() {
