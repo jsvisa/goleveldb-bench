@@ -17,7 +17,44 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/bloom"
 	bench "github.com/fjl/goleveldb-bench"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+var (
+	compCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_count",
+		Help: "The total number of compactions",
+	}, []string{"test"})
+	compReadCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_read_count",
+		Help: "The total number of compaction reads",
+	}, []string{"test"})
+	compMoveCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_move_count",
+		Help: "The total number of compaction moves",
+	}, []string{"test"})
+	compRewriteCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_rewrite_count",
+		Help: "The total number of compaction rewrites",
+	}, []string{"test"})
+	compMultilevelCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_multilevel_count",
+		Help: "The total number of compaction moves",
+	}, []string{"test"})
+	compEstimatedDebt = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_estimated_debt",
+		Help: "The estimated debt of the compaction",
+	}, []string{"test"})
+	compMarkedFiles = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_marked_files",
+		Help: "The number of marked files",
+	}, []string{"test"})
+	compDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "compact_duration",
+		Help: "The total duration of compactions",
+	}, []string{"test"})
 )
 
 func main() {
@@ -235,7 +272,7 @@ func newPebbleRead(cache int) *randomRead {
 		opt.MemTableStopWritesThreshold = 4
 		opt.MaxConcurrentCompactions = func() int { return 3 }
 
-		for i := 0; i < len(opt.Levels); i++ {
+		for i := range opt.Levels {
 			l := &opt.Levels[i]
 			l.BlockSize = 32 << 10       // 32 KB
 			l.IndexBlockSize = 256 << 10 // 256 KB
@@ -305,16 +342,25 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 }
 
 func metric(db *pebble.DB, done chan struct{}) {
-	timer := time.NewTicker(90 * time.Second)
+	timer := time.NewTicker(10 * time.Second)
 	defer timer.Stop()
+
+	testName := ""
 
 	for {
 		select {
 		case <-done:
 			return
 		case <-timer.C:
-			metrics := db.Metrics()
-			log.Printf("Metrics: \n-------------------------------------------------------------------------------------------------------------------\n%+v\n", metrics)
+			stats := db.Metrics()
+			compCount.WithLabelValues(testName).Set(float64(stats.Compact.Count))
+			compReadCount.WithLabelValues(testName).Set(float64(stats.Compact.ReadCount))
+			compMoveCount.WithLabelValues(testName).Set(float64(stats.Compact.MoveCount))
+			compRewriteCount.WithLabelValues(testName).Set(float64(stats.Compact.RewriteCount))
+			compMultilevelCount.WithLabelValues(testName).Set(float64(stats.Compact.MultiLevelCount))
+			compEstimatedDebt.WithLabelValues(testName).Set(float64(stats.Compact.EstimatedDebt))
+			compMarkedFiles.WithLabelValues(testName).Set(float64(stats.Compact.MarkedFiles))
+			compDuration.WithLabelValues(testName).Set(float64(stats.Compact.Duration.Seconds()))
 		}
 	}
 }
