@@ -50,7 +50,6 @@ type ReadEnv struct {
 	kw         io.Writer
 	kr         io.Reader
 	resetKey   func()
-	keych      chan [][]byte
 
 	// reporting
 	mu                  sync.Mutex
@@ -71,7 +70,6 @@ func NewReadEnv(log io.Writer, kr io.Reader, kw io.Writer, resetKey func(), cfg 
 		resetKey: resetKey,
 		key:      make([]byte, cfg.KeySize),
 		value:    make([]byte, cfg.DataSize),
-		keych:    make(chan [][]byte, 100),
 	}
 }
 
@@ -83,7 +81,6 @@ func (env *ReadEnv) Run(write func(key, value string, lastCall bool) error, read
 
 	var (
 		err      error
-		keypool  [][]byte
 		wg       sync.WaitGroup
 		shutdown = make(chan struct{})
 		result   = make(chan [][]byte, 100)
@@ -93,44 +90,11 @@ func (env *ReadEnv) Run(write func(key, value string, lastCall bool) error, read
 		wg.Wait()
 	}()
 
-	// Stage one, construct the test dataset
 	if env.kw != nil {
 		wg.Add(1)
-		go env.writeKey(&wg)
-	stageOne:
-		for {
-			env.rand.Read(env.key)
-			env.rand.Read(env.value)
-
-			env.written += env.cfg.DataSize
-			end := env.written >= env.cfg.Size
-			st := time.Now()
-			err = write(string(env.key), string(env.value), end)
-			writeCount.WithLabelValues(env.cfg.TestName).Inc()
-			writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
-			if err != nil || end {
-				if err == nil {
-					keypool = append(keypool, copyBytes(env.key))
-				}
-				if len(keypool) > 0 {
-					env.keych <- keypool
-				}
-				close(env.keych)
-				break stageOne
-			}
-			keypool = append(keypool, copyBytes(env.key))
-			if len(keypool) > 1024 {
-				env.keych <- keypool
-				keypool = make([][]byte, 0)
-			}
-			env.logWritePercentage()
-		}
-		if err != nil {
-			return err
-		}
+		go env.sideWrite(&wg, write, shutdown)
 	}
 
-	// Stage two, read bench
 	wg.Add(1)
 	go env.readKey(result, shutdown, &wg)
 
@@ -158,17 +122,50 @@ stageTwo:
 	return nil
 }
 
-func (env *ReadEnv) writeKey(wg *sync.WaitGroup) {
+func (env *ReadEnv) writeKey(batchKeys [][]byte) {
+	var buffer []byte
+	for _, key := range batchKeys {
+		buffer = append(buffer, key...)
+	}
+	if _, err := env.kw.Write(buffer); err != nil {
+		panic(fmt.Sprintf("failed to write keys %v", err))
+	}
+}
+
+func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, lastCall bool) error, shutdown chan struct{}) {
 	defer wg.Done()
 
-	for batchKeys := range env.keych {
-		var buffer []byte
-		for _, key := range batchKeys {
-			buffer = append(buffer, key...)
+	// geth write qps: 100
+	timer := time.NewTicker(10 * time.Millisecond)
+	defer timer.Stop()
+
+	keypool := make([][]byte, 0, 1024)
+
+stageOne:
+	for {
+		select {
+		case <-shutdown:
+			break stageOne
+		case <-timer.C:
+			env.rand.Read(env.key)
+			env.rand.Read(env.value)
+
+			st := time.Now()
+			err := write(string(env.key), string(env.value), false)
+			writeCount.WithLabelValues(env.cfg.TestName).Inc()
+			writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
+			if err != nil {
+				break stageOne
+			}
+			keypool = append(keypool, copyBytes(env.key))
+			if len(keypool) > 1024 {
+				env.writeKey(keypool)
+				keypool = make([][]byte, 0)
+			}
 		}
-		if _, err := env.kw.Write(buffer); err != nil {
-			panic(fmt.Sprintf("failed to write keys %v", err))
-		}
+	}
+	if len(keypool) > 0 {
+		env.writeKey(keypool)
 	}
 }
 
@@ -250,16 +247,5 @@ func (env *ReadEnv) logReadPercentage() {
 	if pct > env.lastReadPercent {
 		log.Printf("[Reading] %3d%%  %s\n", pct, env.cfg.TestName)
 		env.lastReadPercent = pct
-	}
-}
-
-func (env *ReadEnv) logWritePercentage() {
-	if !env.cfg.LogPercent {
-		return
-	}
-	pct := int((float64(env.written) / float64(env.cfg.Size)) * 100)
-	if pct > env.lastWrittenPercent {
-		log.Printf("[Writing] %3d%%  %s\n", pct, env.cfg.TestName)
-		env.lastWrittenPercent = pct
 	}
 }
