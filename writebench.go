@@ -30,10 +30,20 @@ var (
 
 const emitInterval = 500 * 1024 // bytes
 
+// SizeDistribution defines the distribution of sizes for keys or values
+type SizeDistribution struct {
+	Size1     int     `json:"size1"`     // First fixed size
+	Size2     int     `json:"size2"`     // Second fixed size
+	MaxRandom int     `json:"maxRandom"` // Maximum size for random values
+	Prob1     float64 `json:"prob1"`     // Probability of size1 (0-1)
+	Prob2     float64 `json:"prob2"`     // Probability of size2 (0-1)
+	// Probability of random size is 1 - prob1 - prob2
+}
+
 type WriteConfig struct {
-	Size      uint64 `json:"size"`      // total size of values to write
-	KeySize   uint64 `json:"keysize"`   // size of each key written
-	ValueSize uint64 `json:"valuesize"` // size of each value written
+	Size      uint64           `json:"size"`      // total size of key-value pairs to write
+	KeyDist   SizeDistribution `json:"keyDist"`   // key size distribution
+	ValueDist SizeDistribution `json:"valueDist"` // value size distribution
 
 	LogPercent bool   `json:"-"`
 	TestName   string `json:"-"`
@@ -55,12 +65,28 @@ type WriteEnv struct {
 	lastPercent          int
 }
 
+// getRandomSize returns a size based on the specified distribution
+func getRandomSize(dist SizeDistribution) int {
+	r := rand.Float64()
+	if r < dist.Prob1 {
+		return dist.Size1
+	} else if r < dist.Prob1+dist.Prob2 {
+		return dist.Size2
+	} else {
+		return rand.Intn(dist.MaxRandom) + 1
+	}
+}
+
 func NewWriteEnv(output io.Writer, kw io.Writer, resetKey func(), cfg WriteConfig) *WriteEnv {
+	// Calculate maximum possible sizes
+	maxKeySize := max(cfg.KeyDist.Size1, cfg.KeyDist.Size2, cfg.KeyDist.MaxRandom)
+	maxValueSize := max(cfg.ValueDist.Size1, cfg.ValueDist.Size2, cfg.ValueDist.MaxRandom)
+
 	return &WriteEnv{
 		cfg:      cfg,
 		out:      json.NewEncoder(output),
-		key:      make([]byte, cfg.KeySize),
-		value:    make([]byte, cfg.ValueSize),
+		key:      make([]byte, maxKeySize),
+		value:    make([]byte, maxValueSize),
 		kw:       kw,
 		resetKey: resetKey,
 		keych:    make(chan [][]byte, 100),
@@ -88,9 +114,17 @@ func (env *WriteEnv) Run(write func(key, value string, lastCall bool) error) err
 	}
 
 	for {
+		// Generate key with random size based on distribution
+		keySize := getRandomSize(env.cfg.KeyDist)
+		env.key = env.key[:keySize]
 		env.rand.Read(env.key)
+
+		// Generate value with random size based on distribution
+		valueSize := getRandomSize(env.cfg.ValueDist)
+		env.value = env.value[:valueSize]
 		env.rand.Read(env.value)
-		written += env.cfg.KeySize + env.cfg.ValueSize
+
+		written += uint64(keySize + valueSize)
 		end := written >= env.cfg.Size
 		st := time.Now()
 		err := write(string(env.key), string(env.value), end)
