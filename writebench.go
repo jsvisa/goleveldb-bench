@@ -34,12 +34,10 @@ const emitInterval = 500 * 1024 // bytes
 
 // SizeDistribution defines the distribution of sizes for keys or values
 type SizeDistribution struct {
-	Size1     uint64  `json:"size1"`     // First fixed size
-	Size2     uint64  `json:"size2"`     // Second fixed size
-	MaxRandom uint64  `json:"maxRandom"` // Maximum size for random values
-	Prob1     float64 `json:"prob1"`     // Probability of size1 (0-1)
-	Prob2     float64 `json:"prob2"`     // Probability of size2 (0-1)
-	// Probability of random size is 1 - prob1 - prob2
+	Sizes     []uint64  `json:"sizes"`     // Fixed sizes
+	Probs     []float64 `json:"probs"`     // Probabilities for each fixed size
+	MaxRandom uint64    `json:"maxRandom"` // Maximum size for random values
+	// Probability of random size is 1 - sum(probs)
 }
 
 type WriteConfig struct {
@@ -69,20 +67,38 @@ type WriteEnv struct {
 
 // getRandomSize returns a size based on the specified distribution
 func getRandomSize(dist SizeDistribution) uint64 {
-	r := rand.Float64()
-	if r < dist.Prob1 {
-		return dist.Size1
-	} else if r < dist.Prob1+dist.Prob2 {
-		return dist.Size2
-	} else {
+	if len(dist.Sizes) == 0 {
 		return uint64(rand.Intn(int(dist.MaxRandom))) + 1
 	}
+
+	r := rand.Float64()
+	var cumProb float64
+	for i, prob := range dist.Probs {
+		cumProb += prob
+		if r < cumProb {
+			return dist.Sizes[i]
+		}
+	}
+	return uint64(rand.Intn(int(dist.MaxRandom))) + 1
+}
+
+func max[T uint64 | float64](a ...T) T {
+	if len(a) == 0 {
+		return 0
+	}
+	maxVal := a[0]
+	for _, v := range a[1:] {
+		if v > maxVal {
+			maxVal = v
+		}
+	}
+	return maxVal
 }
 
 func NewWriteEnv(output io.Writer, kw io.Writer, resetKey func(), cfg WriteConfig) *WriteEnv {
 	// Calculate maximum possible sizes
-	maxKeySize := max(cfg.KeyDist.Size1, cfg.KeyDist.Size2, cfg.KeyDist.MaxRandom)
-	maxValueSize := max(cfg.ValueDist.Size1, cfg.ValueDist.Size2, cfg.ValueDist.MaxRandom)
+	maxKeySize := max(cfg.KeyDist.Sizes...)
+	maxValueSize := max(cfg.ValueDist.Sizes...)
 
 	return &WriteEnv{
 		cfg:      cfg,
@@ -205,19 +221,19 @@ func (env *WriteEnv) writeKey(wg *sync.WaitGroup) {
 	}
 }
 
-// ParseSizeDistribution parses a string in the format "size:probability,size:probability,size:probability"
-// into a SizeDistribution struct. The string should contain exactly 3 parts.
-// Example: "32b:0.5,65b:0.3,100b:0.2"
+// ParseSizeDistribution parses a string in the format "size:probability,size:probability,..."
+// into a SizeDistribution struct.
+// Example: "100b:0.3,1kb:0.5,10kb:0.2"
 func ParseSizeDistribution(distStr string) (SizeDistribution, error) {
 	parts := strings.Split(distStr, ",")
-	if len(parts) != 3 {
-		return SizeDistribution{}, fmt.Errorf("invalid distribution format, expected 3 parts")
+	if len(parts) == 0 {
+		return SizeDistribution{}, fmt.Errorf("empty distribution string")
 	}
 
 	var dist SizeDistribution
 	var totalProb float64
 
-	for i, part := range parts {
+	for _, part := range parts {
 		subparts := strings.Split(part, ":")
 		if len(subparts) != 2 {
 			return SizeDistribution{}, fmt.Errorf("invalid part format: %s", part)
@@ -225,34 +241,30 @@ func ParseSizeDistribution(distStr string) (SizeDistribution, error) {
 
 		size, err := ParseSize(subparts[0])
 		if err != nil {
-			return SizeDistribution{}, fmt.Errorf("invalid size in part %d: %v", i, err)
+			return SizeDistribution{}, fmt.Errorf("invalid size in part %s: %v", part, err)
 		}
 
 		prob, err := strconv.ParseFloat(subparts[1], 64)
 		if err != nil {
-			return SizeDistribution{}, fmt.Errorf("invalid probability in part %d: %v", i, err)
+			return SizeDistribution{}, fmt.Errorf("invalid probability in part %s: %v", part, err)
 		}
 
 		if prob < 0 || prob > 1 {
-			return SizeDistribution{}, fmt.Errorf("probability must be between 0 and 1 in part %d", i)
+			return SizeDistribution{}, fmt.Errorf("probability must be between 0 and 1 in part %s", part)
 		}
 
 		totalProb += prob
-
-		switch i {
-		case 0:
-			dist.Size1 = size
-			dist.Prob1 = prob
-		case 1:
-			dist.Size2 = size
-			dist.Prob2 = prob
-		case 2:
-			dist.MaxRandom = size
-		}
+		dist.Sizes = append(dist.Sizes, size)
+		dist.Probs = append(dist.Probs, prob)
 	}
 
 	if totalProb > 1.0 {
 		return SizeDistribution{}, fmt.Errorf("total probability exceeds 1.0")
+	}
+
+	// Set MaxRandom to the largest size in the distribution
+	if len(dist.Sizes) > 0 {
+		dist.MaxRandom = dist.Sizes[len(dist.Sizes)-1]
 	}
 
 	return dist, nil
