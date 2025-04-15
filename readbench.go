@@ -145,15 +145,20 @@ stageOne:
 	for {
 		select {
 		case <-shutdown:
+			log.Println("Shutdown signal received, stopping sidecar write operation.")
 			break stageOne
 		case <-timer.C:
 			env.rand.Read(env.key)
+
+			valueSize := uint64(rand.Intn(int(env.cfg.DataSize))) + 1
+			env.value = env.value[:valueSize]
 			env.rand.Read(env.value)
 
 			st := time.Now()
 			err := write(string(env.key), string(env.value), false)
 			writeCount.WithLabelValues(env.cfg.TestName).Inc()
 			writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
+			writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(len(env.key) + len(env.value)))
 			if err != nil {
 				break stageOne
 			}

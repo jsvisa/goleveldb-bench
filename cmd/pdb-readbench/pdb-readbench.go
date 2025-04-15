@@ -25,7 +25,7 @@ func main() {
 		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
 		prefixflag   = flag.String("prefix", "", "test name prefix")
 		sizeflag     = flag.String("size", "500mb", "total amount of value data to write")
-		datasizeflag = flag.String("valuesize", "100b", "size of each value")
+		datasizeflag = flag.String("valuesize", "128kb", "maximum length of the value, simulate as the block or state data")
 		keysizeflag  = flag.String("keysize", "32b", "size of each key")
 		dirflag      = flag.String("dir", ".", "test database directory")
 		logdirflag   = flag.String("logdir", ".", "test log output directory")
