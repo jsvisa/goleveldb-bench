@@ -115,7 +115,7 @@ func runTest(logdir, keydir, dbdir, prefix, name string, cfg bench.WriteConfig) 
 			return err
 		}
 		var f *os.File
-		if _, err := os.Stat(keyfile); os.IsNotExist(err) {
+		if _, iErr := os.Stat(keyfile); os.IsNotExist(iErr) {
 			f, err = os.Create(keyfile)
 		} else {
 			f, err = os.OpenFile(keyfile, os.O_APPEND|os.O_WRONLY, 0644)
@@ -195,6 +195,9 @@ func (b seqWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 		return err
 	}
 	defer db.Close()
+	done := make(chan struct{})
+	go bench.CollectPebbleMetrics(db, done)
+	defer func() { done <- struct{}{} }()
 
 	return env.Run(func(key, value string, lastCall bool) error {
 		if err := db.Set([]byte(key), []byte(value), b.wOptions); err != nil {
@@ -239,6 +242,10 @@ func (b *batchWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 	}
 	defer db.Close()
 
+	done := make(chan struct{})
+	go bench.CollectPebbleMetrics(db, done)
+	defer func() { done <- struct{}{} }()
+
 	batch := db.NewBatch()
 	bsize := 0
 	return env.Run(func(key, value string, lastCall bool) error {
@@ -269,6 +276,10 @@ func (b concurrentWrite) Benchmark(dir string, env *bench.WriteEnv) error {
 		return err
 	}
 	defer db.Close()
+
+	done := make(chan struct{})
+	go bench.CollectPebbleMetrics(db, done)
+	defer func() { done <- struct{}{} }()
 
 	var (
 		write            = make(chan kv, b.N)

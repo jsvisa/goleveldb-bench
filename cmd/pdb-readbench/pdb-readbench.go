@@ -17,44 +17,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/bloom"
 	bench "github.com/fjl/goleveldb-bench"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-var (
-	compCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_count",
-		Help: "The total number of compactions",
-	})
-	compReadCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_read_count",
-		Help: "The total number of compaction reads",
-	})
-	compMoveCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_move_count",
-		Help: "The total number of compaction moves",
-	})
-	compRewriteCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_rewrite_count",
-		Help: "The total number of compaction rewrites",
-	})
-	compMultilevelCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_multilevel_count",
-		Help: "The total number of compaction moves",
-	})
-	compEstimatedDebt = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_estimated_debt",
-		Help: "The estimated debt of the compaction",
-	})
-	compMarkedFiles = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_marked_files",
-		Help: "The number of marked files",
-	})
-	compDuration = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "compact_duration",
-		Help: "The total duration of compactions",
-	})
 )
 
 func main() {
@@ -311,7 +274,7 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 	// db.Compact(nil, limit, true)
 
 	done := make(chan struct{})
-	go metric(db, done)
+	go bench.CollectPebbleMetrics(db, done)
 	defer func() { done <- struct{}{} }()
 
 	batch := db.NewBatch()
@@ -337,28 +300,6 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		env.Progress(len(value))
 		return nil
 	})
-}
-
-func metric(db *pebble.DB, done chan struct{}) {
-	timer := time.NewTicker(90 * time.Second)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-done:
-			return
-		case <-timer.C:
-			stats := db.Metrics()
-			compCount.Set(float64(stats.Compact.Count))
-			compReadCount.Set(float64(stats.Compact.ReadCount))
-			compMoveCount.Set(float64(stats.Compact.MoveCount))
-			compRewriteCount.Set(float64(stats.Compact.RewriteCount))
-			compMultilevelCount.Set(float64(stats.Compact.MultiLevelCount))
-			compEstimatedDebt.Set(float64(stats.Compact.EstimatedDebt))
-			compMarkedFiles.Set(float64(stats.Compact.MarkedFiles))
-			compDuration.Set(float64(stats.Compact.Duration.Seconds()))
-		}
-	}
 }
 
 func fileExist(path string) bool {
