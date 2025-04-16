@@ -4,7 +4,7 @@
 
 CPU: AMD Ryzen 7 5700G with Radeon Graphics
 
-Memory: 64GB
+Memory: 128GB
 
 Disk: Samsung SSD 990 EVO Plus 4TB
 
@@ -84,7 +84,7 @@ The results are as [follows](./datasets/pebble-write-10gb):
 General Observations:
 
 1. The write performance improves as the memory table size increases.
-2. When the cache size is 1GB, the write performance remains stable if the memory table size exceeds   `cache/16` or 64MB.
+2. When the cache size is 1GB, the write performance remains stable if the memory table size exceeds `cache/16` or 64MB.
 
 We then tested with 10GB of data and a 1GB, 4GB cache, using memory table sizes of 64MB, 256MB, and 512MB, to determine whether the memory table size should be adjusted in relation to the cache size, results as below:
 
@@ -125,8 +125,6 @@ General Observations:
 
 1. Cache size is not the bigger the better, 4GB and 8GB is a proper good option
 
-
-
 To further validate our findings and explore system behavior under more demanding conditions, we conducted additional tests using a significantly larger dataset, specifically 100GB in size. This larger-scale test aimed to assess the scalability and long-term performance of our configurations, providing deeper insights into how the system handles extensive data processing tasks.
 
 ![image-20250305095747121](assets/image-20250305095747121.png)
@@ -142,8 +140,6 @@ General Observations:
 
 1. The result is similar to the 10GB dataset, the cache size is not the bigger the better, 4GB and 8GB is a proper good option.
 1. The write performance for the 100GB dataset is 1.644 times slower than that of the 10GB dataset.
-
-
 
 Besides of the memory table size and cache size, let's test with other write related options:
 
@@ -180,9 +176,9 @@ The below grafana dashboard shows the read and write performace of PebbleDB in g
 
 ![image-20250302081836469](assets/image-20250302081836469.png)
 
-From the dashboard, we observe that the mean read count is 8650 qps, while the mean write count is 60 qps. This suggests that read operations are significantly more frequent than write operations. 
+From the dashboard, we observe that the mean read count is 8650 qps, while the mean write count is 60 qps. This suggests that read operations are significantly more frequent than write operations.
 
-Moreover, the maximum read time is considerably **higher** than the maximum write time. Given the higher frequency and longer duration of read operations, it is clear that read performance has a substantial impact on overall system efficiency. 
+Moreover, the maximum read time is considerably **higher** than the maximum write time. Given the higher frequency and longer duration of read operations, it is clear that read performance has a substantial impact on overall system efficiency.
 
 Therefore, we need to prioritize and invest more effort into optimizing and refining our read benchmarks.
 
@@ -218,7 +214,7 @@ Next, let's test the same dbsize with different cache size:
 
 From the dashboard, it is evident that, aside from the 1GB cache, the performance of other configurations is relatively similar.
 
-To evaluate the read performance of Pebble across various database sizes, we conducted tests using the   `pebble-read`  testcase with the following database sizes:
+To evaluate the read performance of Pebble across various database sizes, we conducted tests using the `pebble-read` testcase with the following database sizes:
 
 - 10gb
 - 50gb
@@ -236,9 +232,9 @@ The results as below [datasets/pebble-read-varsize](./datasets/pebble-read-varsi
 
 ![image-20250311105951013](assets/image-20250311105951013.png)
 
-From the dashboard, as the database size increases, the read performance tends to deteriorate. This may be because the 1GB cache size is insufficient to effectively manage large datasets. 
+From the dashboard, as the database size increases, the read performance tends to deteriorate. This may be because the 1GB cache size is insufficient to effectively manage large datasets.
 
-To better understand the impact of cache size on performance, we need to conduct tests with larger cache size. We will perform a series of tests on a 100GB database size, using different cache sizes to evaluate their impact on read performance. 
+To better understand the impact of cache size on performance, we need to conduct tests with larger cache size. We will perform a series of tests on a 100GB database size, using different cache sizes to evaluate their impact on read performance.
 
 The cache sizes selected for this test as below [datasets/pebble-read-varcache](datasets/pebble-read-varcache):
 
