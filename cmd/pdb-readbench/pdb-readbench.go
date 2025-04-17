@@ -153,7 +153,7 @@ var tests = map[string]Benchmarker{
 	"geth-read-cache-02gb": newGethRead(2 * bench.GiB),
 	"geth-read-cache-20gb": newGethRead(20 * bench.GiB),
 
-	"random-read-cache-01gb": newRandomRead(1 * bench.GiB),
+	"random-read-cache-02gb": newRandomRead(2 * bench.GiB),
 	"random-read-cache-04gb": newRandomRead(4 * bench.GiB),
 	"random-read-cache-08gb": newRandomRead(8 * bench.GiB),
 	"random-read-cache-10gb": newRandomRead(10 * bench.GiB),
@@ -162,7 +162,7 @@ var tests = map[string]Benchmarker{
 
 	"pebble-read": newPebbleRead(1 * bench.GiB),
 
-	"pebble-read-cache-01gb": newPebbleRead(1 * bench.GiB),
+	"pebble-read-cache-02gb": newPebbleRead(2 * bench.GiB),
 	"pebble-read-cache-04gb": newPebbleRead(4 * bench.GiB),
 	"pebble-read-cache-08gb": newPebbleRead(8 * bench.GiB),
 	"pebble-read-cache-10gb": newPebbleRead(10 * bench.GiB),
