@@ -22,17 +22,18 @@ import (
 
 func main() {
 	var (
-		testflag     = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
-		prefixflag   = flag.String("prefix", "", "test name prefix")
-		sizeflag     = flag.String("size", "500mb", "total amount of value data to write")
-		datasizeflag = flag.String("valuesize", "128kb", "maximum length of the value, simulate as the block or state data")
-		keysizeflag  = flag.String("keysize", "32b", "size of each key")
-		dirflag      = flag.String("dir", ".", "test database directory")
-		logdirflag   = flag.String("logdir", ".", "test log output directory")
-		keydirflag   = flag.String("keydir", ".", "test keyfile directory")
-		randomflag   = flag.Float64("keyrandom", 10, "random key distribution")
-		deletedbflag = flag.Bool("deletedb", false, "delete databases after test run")
-		metricsAddr  = flag.String("metrics-addr", ":2112", "The address to serve metrics on")
+		testflag      = flag.String("test", "", "tests to run ("+strings.Join(testnames(), ", ")+")")
+		prefixflag    = flag.String("prefix", "", "test name prefix")
+		sizeflag      = flag.String("size", "500mb", "total amount of value data to write")
+		datasizeflag  = flag.String("valuesize", "128kb", "maximum length of the value, simulate as the block or state data")
+		keysizeflag   = flag.String("keysize", "32b", "size of each key")
+		dirflag       = flag.String("dir", ".", "test database directory")
+		logdirflag    = flag.String("logdir", ".", "test log output directory")
+		keydirflag    = flag.String("keydir", ".", "test keyfile directory")
+		randomflag    = flag.Float64("keyrandom", 10, "random key distribution")
+		deletedbflag  = flag.Bool("deletedb", false, "delete databases after test run")
+		metricsAddr   = flag.String("metrics-addr", ":2112", "the address to serve metrics on")
+		sidewriteflag = flag.Bool("sidewrite", false, "enables the side write thread")
 
 		run []string
 		cfg bench.ReadConfig
@@ -90,7 +91,7 @@ func main() {
 		if err := os.MkdirAll(dbdir, 0755); err != nil {
 			log.Fatal("can't create keyfile dir: ", err)
 		}
-		if err := runTest(*logdirflag, *keydirflag, dbdir, *prefixflag, name, createdb, cfg); err != nil {
+		if err := runTest(*logdirflag, *keydirflag, dbdir, *prefixflag, name, createdb, *sidewriteflag, cfg); err != nil {
 			log.Printf("test %q failed: %v", name, err)
 			anyErr = true
 		}
@@ -103,7 +104,7 @@ func main() {
 	}
 }
 
-func runTest(logdir, keydir, dbdir, prefix, name string, createdb bool, cfg bench.ReadConfig) error {
+func runTest(logdir, keydir, dbdir, prefix, name string, createdb, sidewrite bool, cfg bench.ReadConfig) error {
 	cfg.TestName = prefix + name
 	logfile, err := os.Create(filepath.Join(logdir, name+time.Now().Format(".2006-01-02-15:04:05")+".json"))
 	if err != nil {
@@ -116,14 +117,16 @@ func runTest(logdir, keydir, dbdir, prefix, name string, createdb bool, cfg benc
 		kr    io.Reader
 		kfile = filepath.Join(keydir, "testing.key")
 	)
-	kf, err := os.OpenFile(kfile, os.O_APPEND|os.O_RDWR, 0644)
-	if err != nil {
-		return err
+	if sidewrite {
+		kf, err := os.OpenFile(kfile, os.O_APPEND|os.O_RDWR, 0644)
+		if err != nil {
+			return err
+		}
+		defer kf.Close()
+		kw = kf
 	}
-	defer kf.Close()
-	kw = kf
 
-	kf, err = os.OpenFile(kfile, os.O_RDONLY, 0644)
+	kf, err := os.OpenFile(kfile, os.O_RDONLY, 0644)
 	if err != nil {
 		return err
 	}
