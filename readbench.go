@@ -163,7 +163,7 @@ func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, 
 	const (
 		baseRate      = 10 * MiB  // 10MB/s
 		burstRate     = 320 * MiB // 320MB
-		baseInterval  = 100 * time.Millisecond
+		baseInterval  = 10 * time.Millisecond
 		burstInterval = 5 * time.Minute
 	)
 
