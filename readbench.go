@@ -132,14 +132,49 @@ func (env *ReadEnv) writeKey(batchKeys [][]byte) {
 	}
 }
 
+func (env *ReadEnv) writeEntry(write func(key, value string, lastCall bool) error, keypool *[][]byte) (int64, error) {
+	env.rand.Read(env.key)
+	valueSize := uint64(rand.Intn(int(env.cfg.DataSize))) + 1
+	env.value = env.value[:valueSize]
+	env.rand.Read(env.value)
+
+	st := time.Now()
+	err := write(string(env.key), string(env.value), false)
+	writeCount.WithLabelValues(env.cfg.TestName).Inc()
+	writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
+	writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(len(env.key) + len(env.value)))
+	if err != nil {
+		return 0, err
+	}
+
+	*keypool = append(*keypool, copyBytes(env.key))
+	if len(*keypool) > 1024 {
+		env.writeKey(*keypool)
+		*keypool = make([][]byte, 0)
+	}
+
+	return int64(len(env.key) + len(env.value)), nil
+}
+
 func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, lastCall bool) error, shutdown chan struct{}) {
 	defer wg.Done()
 
-	// geth write qps: 100
-	timer := time.NewTicker(10 * time.Millisecond)
+	// Constants for the write pattern
+	const (
+		baseRate      = 10 * MiB  // 10MB/s
+		burstRate     = 320 * MiB // 320MB
+		baseInterval  = 100 * time.Millisecond
+		burstInterval = 5 * time.Minute
+	)
+
+	timer := time.NewTicker(baseInterval)
+	burstTimer := time.NewTicker(burstInterval)
 	defer timer.Stop()
+	defer burstTimer.Stop()
 
 	keypool := make([][]byte, 0, 1024)
+	var burstWritten int64
+	lastCheck := time.Now()
 
 stageOne:
 	for {
@@ -147,26 +182,31 @@ stageOne:
 		case <-shutdown:
 			log.Println("Shutdown signal received, stopping sidecar write operation.")
 			break stageOne
+		case <-burstTimer.C:
+			// Burst write
+			burstStart := time.Now()
+			for burstWritten < burstRate {
+				bytes, err := env.writeEntry(write, &keypool)
+				if err != nil {
+					break stageOne
+				}
+				burstWritten += bytes
+			}
+			burstWritten = 0
+			log.Printf("Completed burst write in %v", time.Since(burstStart))
 		case <-timer.C:
-			env.rand.Read(env.key)
+			// Base rate writing
+			now := time.Now()
+			elapsed := now.Sub(lastCheck).Seconds()
+			targetBytes := int64(baseRate * elapsed)
 
-			valueSize := uint64(rand.Intn(int(env.cfg.DataSize))) + 1
-			env.value = env.value[:valueSize]
-			env.rand.Read(env.value)
-
-			st := time.Now()
-			err := write(string(env.key), string(env.value), false)
-			writeCount.WithLabelValues(env.cfg.TestName).Inc()
-			writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
-			writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(len(env.key) + len(env.value)))
-			if err != nil {
-				break stageOne
+			if targetBytes > 0 {
+				_, err := env.writeEntry(write, &keypool)
+				if err != nil {
+					break stageOne
+				}
 			}
-			keypool = append(keypool, copyBytes(env.key))
-			if len(keypool) > 1024 {
-				env.writeKey(keypool)
-				keypool = make([][]byte, 0)
-			}
+			lastCheck = now
 		}
 	}
 	if len(keypool) > 0 {
