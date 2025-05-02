@@ -45,6 +45,47 @@ var (
 		Name: "pebble_disk_size",
 		Help: "The size of the database on disk",
 	})
+
+	tableCacheCount = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_table_cache_count",
+		Help: "The number of table cache entries",
+	})
+	tableCacheSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_table_cache_size",
+		Help: "The size of the table cache",
+	})
+	tableCacheHits = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_table_cache_hits",
+		Help: "The number of table cache hits",
+	})
+	tableCacheMiss = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_table_cache_miss",
+		Help: "The number of table cache misses",
+	})
+	blockCacheCount = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_block_cache_count",
+		Help: "The number of block cache entries",
+	})
+	blockCacheSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_block_cache_size",
+		Help: "The size of the block cache",
+	})
+	blockCacheHits = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_block_cache_hits",
+		Help: "The number of block cache hits",
+	})
+	blockCacheMiss = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_block_cache_miss",
+		Help: "The number of block cache misses",
+	})
+	filterHits = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_filter_hits",
+		Help: "The number of filter hits",
+	})
+	filterMiss = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "pebble_filter_miss",
+		Help: "The number of filter misses",
+	})
 )
 
 func CollectPebbleMetrics(db *pebble.DB, done chan struct{}) {
@@ -66,6 +107,16 @@ func CollectPebbleMetrics(db *pebble.DB, done chan struct{}) {
 			compMarkedFiles.Set(float64(stats.Compact.MarkedFiles))
 			compDuration.Set(float64(stats.Compact.Duration.Seconds()))
 			diskSize.Set(float64(stats.DiskSpaceUsage()))
+			tableCacheCount.Set(float64(stats.TableCache.Count))
+			tableCacheSize.Set(float64(stats.TableCache.Size))
+			tableCacheHits.Set(float64(stats.TableCache.Hits))
+			tableCacheMiss.Set(float64(stats.TableCache.Misses))
+			blockCacheCount.Set(float64(stats.BlockCache.Count))
+			blockCacheSize.Set(float64(stats.BlockCache.Size))
+			blockCacheHits.Set(float64(stats.BlockCache.Hits))
+			blockCacheMiss.Set(float64(stats.BlockCache.Misses))
+			filterHits.Set(float64(stats.Filter.Hits))
+			filterMiss.Set(float64(stats.Filter.Misses))
 		}
 	}
 }
