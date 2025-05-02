@@ -171,6 +171,166 @@ var tests = map[string]Benchmarker{
 	"pebble-read-cache-10gb": newPebbleRead(10 * bench.GiB),
 	"pebble-read-cache-20gb": newPebbleRead(20 * bench.GiB),
 	"pebble-read-cache-30gb": newPebbleRead(30 * bench.GiB),
+
+	"geth-default": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-MemTableSize-64mb": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(64 * bench.MiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-L0StopWritesThreshold-1000": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			L0StopWritesThreshold:       1000,
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-L0CompactionThreshold-4": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			L0CompactionThreshold:       4,
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-level-BlockSize-32kb": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			l.BlockSize = 32 << 10 // 32 KB
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-level-BlockSize-32kb-IndexBlockSize-256kb": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			l.BlockSize = 32 << 10       // 32 KB
+			l.IndexBlockSize = 256 << 10 // 256 KB
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-FlushSplitBytes-2mb": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+			FlushSplitBytes:             2 << 20,
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
 }
 
 func testnames() (n []string) {
