@@ -266,7 +266,7 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 	bsize := 0
 	return env.Run(func(key, value string, lastCall bool) error {
 		batch.Set([]byte(key), []byte(value), nil)
-		bsize += len(value)
+		bsize += len(key) + len(value)
 		if bsize >= 100*bench.KiB || lastCall {
 			if err := batch.Commit(nil); err != nil {
 				return err
