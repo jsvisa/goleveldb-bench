@@ -161,10 +161,9 @@ func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, 
 
 	// Constants for the write pattern
 	const (
-		baseRate      = 10 * MiB
 		burstRate     = 500 * MiB
 		baseInterval  = 10 * time.Millisecond
-		burstInterval = 5 * time.Minute
+		burstInterval = 1 * time.Minute
 	)
 
 	timer := time.NewTicker(baseInterval)
@@ -174,7 +173,6 @@ func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, 
 
 	keypool := make([][]byte, 0, 1024)
 	var burstWritten int64
-	lastCheck := time.Now()
 
 stageOne:
 	for {
@@ -195,18 +193,10 @@ stageOne:
 			burstWritten = 0
 			log.Printf("Completed burst write in %v", time.Since(burstStart))
 		case <-timer.C:
-			// Base rate writing
-			now := time.Now()
-			elapsed := now.Sub(lastCheck).Seconds()
-			targetBytes := int64(baseRate * elapsed)
-
-			if targetBytes > 0 {
-				_, err := env.writeEntry(write, &keypool)
-				if err != nil {
-					break stageOne
-				}
+			if _, err := env.writeEntry(write, &keypool); err != nil {
+				log.Printf("Error writing entry: %v", err)
+				break stageOne
 			}
-			lastCheck = now
 		}
 	}
 	if len(keypool) > 0 {
