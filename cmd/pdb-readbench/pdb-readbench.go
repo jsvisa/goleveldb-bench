@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -134,6 +135,11 @@ func runTest(logdir, keydir, dbdir, prefix, name string, createdb, sidewrite boo
 	kr = kf
 	reset := func() { kf.Seek(0, io.SeekStart) }
 
+	offset := rand.New(rand.NewSource(0x1334)).Intn(100000)
+
+	// set a random starting key
+	kf.Seek(int64(cfg.KeySize*uint64(offset)), io.SeekStart)
+
 	log.Printf("== running %q", name)
 	env := bench.NewReadEnv(logfile, kr, kw, reset, cfg)
 	return tests[name].Benchmark(dbdir, env)
@@ -262,6 +268,29 @@ var tests = map[string]Benchmarker{
 		return opt
 	}()},
 
+	"geth-L0CompactionThreshold-12": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			L0CompactionThreshold:       12,
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(1 * bench.GiB),
+			MemTableStopWritesThreshold: 2,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
 	"geth-level-BlockSize-32kb": &randomRead{Options: func() *pebble.Options {
 		opt := &pebble.Options{
 			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
@@ -321,6 +350,31 @@ var tests = map[string]Benchmarker{
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
+			l.FilterPolicy = bloom.FilterPolicy(10)
+			if i > 0 {
+				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+			}
+			l.EnsureDefaults()
+		}
+		opt.Experimental.ReadSamplingMultiplier = -1
+
+		return opt
+	}()},
+
+	"geth-optimized": &randomRead{Options: func() *pebble.Options {
+		opt := &pebble.Options{
+			Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+			L0CompactionThreshold:       12,
+			MaxOpenFiles:                16384,
+			MemTableSize:                uint64(64 * bench.MiB),
+			MemTableStopWritesThreshold: 1000,
+			MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:                      make([]pebble.LevelOptions, 7),
+		}
+		for i := range opt.Levels {
+			l := &opt.Levels[i]
+			l.BlockSize = 32 << 10       // 32 KB
+			l.IndexBlockSize = 256 << 10 // 256 KB
 			l.FilterPolicy = bloom.FilterPolicy(10)
 			if i > 0 {
 				l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
