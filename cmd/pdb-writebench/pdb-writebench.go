@@ -9,12 +9,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
 	_ "net/http/pprof"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/bloom"
 	bench "github.com/fjl/goleveldb-bench"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
@@ -143,6 +145,7 @@ var tests = map[string]Benchmarker{
 	"batch-5mb":          &batchWrite{BatchSize: 5 * bench.MiB},
 	"batch-100kb-nosync": &batchWrite{BatchSize: 100 * bench.KiB, wOptions: pebble.NoSync},
 	"concurrent":         concurrentWrite{N: 8},
+	"geth-default":       newGethDefault(),
 
 	"batch-100kb-mt-004mb-cache-1gb": newBatchWrite(4*MiB, 1*GiB),
 	"batch-100kb-mt-008mb-cache-1gb": newBatchWrite(8*MiB, 1*GiB),
@@ -212,6 +215,32 @@ type batchWrite struct {
 	Options   *pebble.Options
 	wOptions  *pebble.WriteOptions
 	BatchSize int
+}
+
+func newGethDefault() *batchWrite {
+	opt := &pebble.Options{
+		Cache:                       pebble.NewCache(int64(4 * bench.GiB)),
+		MaxOpenFiles:                16384,
+		MemTableSize:                uint64(1 * bench.GiB),
+		MemTableStopWritesThreshold: 2,
+		MaxConcurrentCompactions:    runtime.NumCPU,
+		Levels:                      make([]pebble.LevelOptions, 7),
+	}
+	for i := range opt.Levels {
+		l := &opt.Levels[i]
+		l.FilterPolicy = bloom.FilterPolicy(10)
+		if i > 0 {
+			l.TargetFileSize = opt.Levels[i-1].TargetFileSize * 2
+		}
+		l.EnsureDefaults()
+	}
+	opt.Experimental.ReadSamplingMultiplier = -1
+
+	return &batchWrite{
+		Options:   opt,
+		wOptions:  pebble.NoSync,
+		BatchSize: 100 * bench.KiB,
+	}
 }
 
 func newBatchWrite(mem, cache int) *batchWrite {
