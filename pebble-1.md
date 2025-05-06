@@ -503,8 +503,6 @@ Key findings:
 
 Later we manully compacting the 3TB, the log before and after as below:
 
-
-
 ```
 2025/05/03 07:18:37 Before compaction metrics:
       |                             |       |       |   ingested   |     moved    |    written   |       |    amp
@@ -582,34 +580,35 @@ pdb-readbench -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1g
 Key findings:
 
 1. The latency of the existing keys are really good, minimum to 50us
-2. The latency of the not-found keys are 8 times worse than the existing keys, and the latency is stable, I think this maybe in the manully compaction, the bloom filter was destroyed?
+2. The manual compaction can improve read performance by 7x
+3. The latency of the not-found keys are 8 times worse than the existing keys, and the latency is stable, I think this maybe in the manully compaction, the bloom filter was destroyed?
 
-Retest with `-sidewrite`, run with different `-valuesize 1kb, 100kb`:
+Retest with `-sidewrite` and a long running period(change `-size=10m` to `-size=100m`) to see the latency of a long running process:
 
 ```bash
-pdb-readbench -sidewrite -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-FlushSplitBytes-2mb,geth-L0CompactionThreshold-4,geth-L0StopWritesThreshold-1000,geth-MemTableSize-64mb,geth-default,geth-level-BlockSize-32kb,geth-level-BlockSize-32kb-IndexBlockSize-256kb
-
-pdb-readbench -sidewrite -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-FlushSplitBytes-2mb,geth-L0CompactionThreshold-4,geth-L0StopWritesThreshold-1000,geth-MemTableSize-64mb,geth-default,geth-level-BlockSize-32kb,geth-level-BlockSize-32kb-IndexBlockSize-256kb
+pdb-readbench -sidewrite -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 100mb -keyrandom 50 -test geth-FlushSplitBytes-2mb,geth-L0CompactionThreshold-4,geth-L0StopWritesThreshold-1000,geth-MemTableSize-64mb,geth-default,geth-level-BlockSize-32kb,geth-level-BlockSize-32kb-IndexBlockSize-256kb
 ```
 
-![image-20250505212551499](assets/image-20250505212551499.png)
 
-> 200 read latency
->
-> ![image-20250505213011483](assets/image-20250505213011483.png)
->
-> 404 read latency
->
-> ![image-20250505213033765](assets/image-20250505213033765.png)
+
+Here is the side write bytes chart:
+
+![image-20250506081809072](assets/image-20250506081809072.png)
+
+And here is the read count and latency:![image-20250506081651336](assets/image-20250506081651336.png)
 
 Key findings:
 
-1. The read latency was worse than the readonly case
-
-2. In the first `-sidewrite -valuesize 1kb` testcase, the read 200 latency is decreasing by time, it's wired
+1. The read latency was worse than the readonly case(same as the previous findings)
 
    
 
 ##### Conclusions
 
-The root cause of read-related workload latency spikes is not the LSM-technology itself, but rather compaction related issues and the absence of advanced resource management (in RocksDB), and especially effective resource and QoS implementation and management.
+The benchmark results demonstrate that Pebble's performance in Geth's workflow is heavily influenced by configuration settings and workload patterns. While read performance is generally good under stable conditions, it can degrade significantly during compaction operations. The optimal configuration depends on the specific workload, available resources, and performance requirements.
+
+Key takeaways:
+1. Read performance is more critical than write performance in Geth's workflow
+2. The read latency is stable to ~100us under a stable db
+3. The read latency may degrade to as low as 1ms when a large volume of data is written and compaction occurs
+4. Compaction management is crucial for maintaining consistent performance
