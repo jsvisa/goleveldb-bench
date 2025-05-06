@@ -211,7 +211,7 @@ Key arguments:
 
 ### 1. 100GB test
 
-After the write process(about 2hours), we go about 116GB data in the database, so the SpaceAmp is 1.16;
+After the write process(about 2hours), we go about 116GB data in the database, so the Space Amplifier is 1.16;
 
 #### read-only
 
@@ -266,235 +266,135 @@ This will launch a goroutine to write data into the testing database. Specifical
 
 Key findings:
 
-1. Compared to the read-only mode, in read-write, the read latency is worse, the latency degraded from **130us** to **360us**
+1. Compared to the read-only mode, in read-write, the read latency is worse, the mean latency degraded from **130us** to **360us**
+1. In this read-write mode, the read performance is unstable. As the test progresses, the latency gradually degraded from **100us to 500us**
 
 ### 500GB test
 
-Now let's fill more data into that db
-
-Key findings:
-
-1. The read latency(~200-500us) for all the three test cases are all larger then the previous ones.(~150-200us)
-2. The write is stable, which is not similar to geth's workflow, so need to take some adjusts
-
-We introduce a burst write inside the side write, which will trigger a 500mb write every 5minutes(later changed this interval to every 1minute), then retest it with a large write valuesize:
+Let's writing +400GB into the db, before writing, the db size:
 
 ```bash
-pdb-readbench -sidewrite -keysize 65b -valuesize 2mb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-read-cache-02gb,pebble-read-cache-02gb,random-read-cache-02gb
+du -sh /md2/pb2/testdb-geth-default
+147GB
 ```
 
-The write QPS and latency as below:
-
-![image-20250419104005250](assets/image-20250419104005250.png)
-
-![image-20250419104016506](assets/image-20250419104016506.png)
-
-Read QPS and latency as below:
-
-![image-20250419104050863](assets/image-20250419104050863.png)
-
-![image-20250419104124551](assets/image-20250419104124551.png)
-
-Key findings:
-
-1. The read latency is 500us-1ms, which is 2times more compared to the previous testcase.
-
-In the mean while, let's test the db in read-only mode without the `-sidewrite` :
-
 ```bash
-pdb-readbench -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-read-cache-02gb
-
-# pebble manually compaction ~30mins
-
-pdb-readbench -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-read-cache-02gb
+pdb-writebench -keysize 65b -valuesize 16b -dir /md0/pb2 -test geth-default -size 400gb -keydir /md2/pb-keys -logdir pb-testlogs
 ```
 
-![image-20250422055841915](assets/image-20250422055841915.png)
+#### read-only
 
-![image-20250422055919522](assets/image-20250422055919522.png)
-
-![image-20250422060249612](assets/image-20250422060249612.png)
-
-Key points:
-
-1. Pre compaction, the read performance is not stable, but increases at the end of the first read phase, maybe the previous reads triggered the db compaction
-2. Post compaction, the read latency is really low after the compaction, about 7 times lower compared the pre compaction
-
-Apart from the 3-5 byte state db, we also write a bunch of data ranging from 0 to 128kb to simulate the block data.
+Now let's start with db read-only mode test on that db:
 
 ```bash
-pdb-writebench -keysize 65b -valuesize 10kb -dir /md0/pb-dataset -test batch-100kb-mt-1gb-cache-04gb -size 100gb -keydir /md1/pb-keys -logdir pb-testlogs
-pdb-writebench -keysize 65b -valuesize 64kb -dir /md0/pb-dataset -test batch-100kb-mt-1gb-cache-04gb -size 100gb -keydir /md1/pb-keys -logdir pb-testlogs
-pdb-writebench -keysize 65b -valuesize 128kb -dir /md0/pb-dataset -test batch-100kb-mt-1gb-cache-04gb -size 100gb -keydir /md1/pb-keys -logdir pb-testlogs
-```
-
-After this write process, we first manually compact the db, and then got about 900GB data in the database.
-
-```bash
-du -sh /md0/pb-dataset
-900GB
-```
-
-So here we can start the read process to see how is it the read performance
-
-```bash
-pdb-readbench -keysize 65b -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 100mb -keyrandom 50 -test geth-read-cache-02gb,pebble-read-cache-02gb,random-read-cache-02gb
+pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default
 ```
 
 > Read QPS
 
-![image-20250418101721923](assets/image-20250418101721923.png)
-
 > Read Latency
 
-![image-20250418101853211](assets/image-20250418101853211.png)
+> Compaction count
 
 Key findings:
 
-1. After compaction, the latency of DB read is relatively stable, and there is no significant relationship between the reading time and the size of the DB.
+#### read-write
 
-### Large dbsize test
-
-In order to better test the scalability of Pebble, we wrote the data to the database up to 3TB(my ssd is 3.6TB), and then test it's read performance.
-
-We need to test based on geth's default pebble configuration, add the more test cases as below, ref https://github.com/jsvisa/goleveldb-bench/blob/5cccbcf5d23aca3a74713ce104691aee540b9292/cmd/pdb-readbench/pdb-readbench.go#L181-L387:
-
-```go
-- geth-default
-- geth-MemTableSize-64mb
-- geth-L0StopWritesThreshold-1000
-- geth-L0CompactionThreshold-4
-- geth-L0CompactionThreshold-12
-- geth-level-BlockSize-32kb
-- geth-level-BlockSize-32kb-IndexBlockSize-256kb
-- geth-FlushSplitBytes-2mb
-```
-
-#### 3TB + sidewrite
-
-First test with `-sidewrite` and without db compaction:
+Then test with the read-write mode
 
 ```bash
-pdb-readbench -sidewrite -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-FlushSplitBytes-2mb,geth-L0CompactionThreshold-4,geth-L0StopWritesThreshold-1000,geth-MemTableSize-64mb,geth-default,geth-level-BlockSize-32kb,geth-level-BlockSize-32kb-IndexBlockSize-256kb
+pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default -sidewrite -valuesize 1kb
 ```
 
-> The read count and latency
+In this test case,we append the `-sidewrite -valuesize 1kb` parameters to the command line.
 
-![image-20250505210626537](assets/image-20250505210626537.png)
+**After the write process, the db reached to XXXGB**
+
+> Read QPS
+
+> Read latency
 
 Key findings:
 
-1. Read latency is really bad, mean time is 4.3ms, up to 6ms
-2. The read performance is similar, no related to the different pebble configurations
+### 3TB test
 
-#### 3TB + read-only
+#### read-only
 
-Then we test with the read-only mode, with a new `geth-optimized` [test case](https://github.com/jsvisa/goleveldb-bench/blob/5cccbcf5d23aca3a74713ce104691aee540b9292/cmd/pdb-readbench/pdb-readbench.go#L364-L388):
-
-![image-20250505211051999](assets/image-20250505211051999.png)
-
-Key findings:
-
-1. Read latency is better than the sidewrite's case
-2. The latency of read operations has been gradually reduced. This might be due to the block cache, as that compaction has not occurred
-
-Later we manully compacting the 3TB, the log before and after as below:
-
-```
-2025/05/03 07:18:37 Before compaction metrics:
-      |                             |       |       |   ingested   |     moved    |    written   |       |    amp
-level | tables  size val-bl vtables | score |   in  | tables  size | tables  size | tables  size |  read |   r   w
-------+-----------------------------+-------+-------+--------------+--------------+--------------+-------+---------
-    0 |   100  228MB     0B       0 |  0.86 |    0B |     0     0B |     0     0B |     0     0B |    0B |   7  0.0
-    1 |    18   64MB     0B       0 |  2.75 |    0B |     0     0B |     0     0B |     0     0B |    0B |   1  0.0
-    2 |   117  548MB     0B       0 |  1.05 |    0B |     0     0B |     0     0B |     0     0B |    0B |   1  0.0
-    3 |   604  4.6GB     0B       0 |  1.00 |    0B |     0     0B |     0     0B |     0     0B |    0B |   1  0.0
-    4 |  2.2K   40GB     0B       0 |  1.00 |    0B |     0     0B |     0     0B |     0     0B |    0B |   1  0.0
-    5 |  9.2K  338GB     0B       0 |  1.00 |    0B |     0     0B |     0     0B |     0     0B |    0B |   1  0.0
-    6 |   35K  2.8TB     0B       0 |     - |    0B |     0     0B |     0     0B |     0     0B |    0B |   1  0.0
-total |   47K  3.2TB     0B       0 |     - |    0B |     0     0B |     0     0B |     0     0B |    0B |  13  0.0
--------------------------------------------------------------------------------------------------------------------
-WAL: 1 files (0B)  in: 0B  written: 0B (0% overhead)
-Flushes: 0
-Compactions: 0  estimated debt: 8.2GB  in progress: 9 (0B)
-             default: 0  delete: 0  elision: 0  move: 0  read: 0  rewrite: 0  multi-level: 0
-MemTables: 1 (256KB)  zombie: 1 (4.0MB)
-Zombie tables: 0 (0B)
-Backing tables: 0 (0B)
-Virtual tables: 0 (0B)
-Block cache: 0 entries (0B)  hit rate: 0.0%
-Table cache: 0 entries (0B)  hit rate: 0.0%
-Secondary cache: 0 entries (0B)  hit rate: 0.0%
-Snapshots: 0  earliest seq num: 0
-Table iters: 0
-Filter utility: 0.0%
-Ingestions: 0  as flushable: 0 (0B in 0 tables)
-
-2025/05/03 07:18:37 Compacting the database
-2025/05/03 14:12:46 Compaction took 6h54m9.313546491s
-2025/05/03 14:12:46 After compaction metrics:
-      |                             |       |       |   ingested   |     moved    |    written   |       |    amp   |     multilevel
-level | tables  size val-bl vtables | score |   in  | tables  size | tables  size | tables  size |  read |   r   w  |    top   in  read
-------+-----------------------------+-------+-------+--------------+--------------+--------------+-------+----------+------------------
-    0 |     0     0B     0B       0 |  0.00 |    0B |     0     0B |     0     0B |     0     0B |    0B |   0  0.0 |    0B    0B    0B
-    1 |     0     0B     0B       0 |  0.00 | 228MB |     0     0B |     0     0B |    95  331MB | 331MB |   0  1.5 |    0B    0B    0B
-    2 |     0     0B     0B       0 |  0.00 | 265MB |     0     0B |     0     0B |   186  925MB | 923MB |   0  3.5 |    0B    0B    0B
-    3 |     0     0B     0B       0 |  0.00 | 689MB |     0     0B |     1   958B |   580  4.3GB | 4.3GB |   0  6.3 |  27MB 318MB 2.2GB
-    4 |     0     0B     0B       0 |  0.00 | 4.0GB |     0     0B |     0     0B |  2.0K   30GB |  30GB |   0  7.3 | 153MB 1.6GB  13GB
-    5 |     0     0B     0B       0 |  0.00 |  33GB |     0     0B |     2  2.1MB |  8.7K  250GB | 251GB |   0  7.5 | 1.4GB  16GB 132GB
-    6 |   38K  3.1TB     0B       0 |     - | 382GB |     0     0B |     0     0B |   39K  3.1TB | 3.2TB |   1  8.4 |  12GB 136GB 1.1TB
-total |   38K  3.1TB     0B       0 |     - |    0B |     0     0B |     3  2.1MB |   51K  3.4TB | 3.5TB |   1  0.0 |  13GB 154GB 1.2TB
----------------------------------------------------------------------------------------------------------------------------------------
-WAL: 1 files (0B)  in: 0B  written: 0B (0% overhead)
-Flushes: 0
-Compactions: 10703  estimated debt: 0B  in progress: 0 (0B)
-             default: 10700  delete: 0  elision: 0  move: 3  read: 0  rewrite: 0  multi-level: 1084
-MemTables: 1 (256KB)  zombie: 1 (4.0MB)
-Zombie tables: 0 (0B)
-Backing tables: 0 (0B)
-Virtual tables: 0 (0B)
-Block cache: 0 entries (0B)  hit rate: 0.0%
-Table cache: 0 entries (0B)  hit rate: 33.9%
-Secondary cache: 0 entries (0B)  hit rate: 0.0%
-Snapshots: 0  earliest seq num: 0
-Table iters: 0
-Filter utility: 0.0%
-Ingestions: 0  as flushable: 0 (0B in 0 tables)
-```
-
-#### 3TB after compaction
-
-Retest without `-sidewrite`:
+Now let's start with db read-only mode test on that db:
 
 ```bash
-pdb-readbench -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 10mb -keyrandom 50 -test geth-FlushSplitBytes-2mb,geth-L0CompactionThreshold-4,geth-L0StopWritesThreshold-1000,geth-MemTableSize-64mb,geth-default,geth-level-BlockSize-32kb,geth-level-BlockSize-32kb-IndexBlockSize-256kb
+pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default
 ```
 
-![image-20250505211750822](assets/image-20250505211750822.png)
+> Read QPS
+>
+> ![image-20250506164542908](assets/image-20250506164542908.png)
+
+> Read Latency
+>
+> ![image-20250506164557383](assets/image-20250506164557383.png)
+
+> Compaction count
+>
+> ![image-20250506164611335](assets/image-20250506164611335.png)
 
 Key findings:
 
-1. The latency of the existing keys are really good, minimum to 50us
-2. The manual compaction can improve read performance by 7x
-3. The latency of the not-found keys are 8 times worse than the existing keys, and the latency is stable, I think this maybe in the manully compaction, the bloom filter was destroyed?
+1. After the initial setup, the mean read latency is 460us, which is 3.5 times higher than that of the 100 GB database size scenario
 
-Retest with `-sidewrite` and a long running period(change `-size=10m` to `-size=100m`) to see the latency of a long running process:
+#### read-write
+
+Then test with the read-write mode
 
 ```bash
-pdb-readbench -sidewrite -keysize 65b -valuesize 1kb -keydir /md1/pb-keys/batch-100kb-mt-1gb-cache-04gb -logdir pebble-read-logs -dir /md0/pb-dataset/testdb-batch-100kb-mt-1gb-cache-04gb/ -size 100mb -keyrandom 50 -test geth-FlushSplitBytes-2mb,geth-L0CompactionThreshold-4,geth-L0StopWritesThreshold-1000,geth-MemTableSize-64mb,geth-default,geth-level-BlockSize-32kb,geth-level-BlockSize-32kb-IndexBlockSize-256kb
+pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default -sidewrite -valuesize 1kb
 ```
 
-Here is the side write bytes chart:
+The Write speed as before, stable at 9MB/s
 
-![image-20250506081809072](assets/image-20250506081809072.png)
+![image-20250506164859808](assets/image-20250506164859808.png)
 
-And here is the read count and latency:![image-20250506081651336](assets/image-20250506081651336.png)
+**After the write process, the db reached from 3.17TB to 3.20TB**
+
+> Read QPS
+>
+> ![image-20250506164751373](assets/image-20250506164751373.png)
+
+> Read latency
+>
+> ![image-20250506164806648](assets/image-20250506164806648.png)
+>
+> Compaction
+>
+> ![image-20250506165936557](assets/image-20250506165936557.png)
 
 Key findings:
 
-1. The read latency was worse than the readonly case(same as the previous findings)
+1. The read latency is 760us, which is 2 times higher than 100GB case
 
 ##### Conclusions
+
+> Read Only Latency
+
+| DB Size    | Mean(us) | Min(us) | Max(us) |
+| ---------- | -------- | ------- | ------- |
+| 100GB(200) | 149      | 133     | 155     |
+| 100GB(404) | 148      | 134     | 154     |
+| 500GB(200) |          |         |         |
+| 500GB(404) |          |         |         |
+| 3TB(200)   | 392      | 327     | 524     |
+| 3TB(404)   | 393      | 327     | 526     |
+
+> Read Write
+
+| DB Size    | Mean(us) | Min(us) | Max(us) |
+| ---------- | -------- | ------- | ------- |
+| 100GB(200) | 335      | 91.7    | 875     |
+| 100GB(404) | 347      | 114     | 838     |
+| 500GB(200) |          |         |         |
+| 500GB(404) |          |         |         |
+| 3TB(200)   | 624      | 208     | 1060    |
+| 3TB(404)   | 691      | 332     | 1100    |
 
 The benchmark results demonstrate that Pebble's performance in Geth's workflow is heavily influenced by configuration settings and workload patterns. While read performance is generally good under stable conditions, it can degrade significantly during compaction operations. The optimal configuration depends on the specific workload, available resources, and performance requirements.
 
