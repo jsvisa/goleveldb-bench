@@ -482,7 +482,7 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 		batch.Set([]byte(key), []byte(value), nil)
 		bsize += len(key) + len(value)
 		if bsize >= 100*bench.KiB || lastCall {
-			if err := batch.Commit(pebble.NoSync); err != nil {
+			if err := batch.Commit(nil); err != nil {
 				return err
 			}
 			bsize = 0
