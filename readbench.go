@@ -132,28 +132,21 @@ func (env *ReadEnv) writeKey(batchKeys [][]byte) {
 	}
 }
 
-func (env *ReadEnv) writeEntry(write func(key, value string, lastCall bool) error, keypool *[][]byte) (int64, error) {
+func (env *ReadEnv) writeEntry(write func(key, value string, lastCall bool) error) (int64, error) {
 	env.rand.Read(env.key)
-	valueSize := uint64(rand.Intn(int(env.cfg.DataSize))) + 1
-	env.value = env.value[:valueSize]
 	env.rand.Read(env.value)
+	size := len(env.key) + len(env.value)
 
 	st := time.Now()
 	err := write(string(env.key), string(env.value), false)
 	writeCount.WithLabelValues(env.cfg.TestName).Inc()
 	writeSeconds.WithLabelValues(env.cfg.TestName).Add(float64(time.Since(st).Seconds()))
-	writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(len(env.key) + len(env.value)))
+	writeBytes.WithLabelValues(env.cfg.TestName).Add(float64(size))
 	if err != nil {
 		return 0, err
 	}
 
-	*keypool = append(*keypool, copyBytes(env.key))
-	if len(*keypool) > 1024 {
-		env.writeKey(*keypool)
-		*keypool = make([][]byte, 0)
-	}
-
-	return int64(len(env.key) + len(env.value)), nil
+	return int64(size), nil
 }
 
 func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, lastCall bool) error, shutdown chan struct{}) {
@@ -171,7 +164,6 @@ func (env *ReadEnv) sideWrite(wg *sync.WaitGroup, write func(key, value string, 
 	defer timer.Stop()
 	defer burstTimer.Stop()
 
-	keypool := make([][]byte, 0, 1024)
 	var burstWritten int64
 
 stageOne:
@@ -184,7 +176,7 @@ stageOne:
 			// Burst write
 			burstStart := time.Now()
 			for burstWritten < burstRate {
-				bytes, err := env.writeEntry(write, &keypool)
+				bytes, err := env.writeEntry(write)
 				if err != nil {
 					break stageOne
 				}
@@ -193,14 +185,11 @@ stageOne:
 			burstWritten = 0
 			log.Printf("Completed burst write in %v", time.Since(burstStart))
 		case <-timer.C:
-			if _, err := env.writeEntry(write, &keypool); err != nil {
+			if _, err := env.writeEntry(write); err != nil {
 				log.Printf("Error writing entry: %v", err)
 				break stageOne
 			}
 		}
-	}
-	if len(keypool) > 0 {
-		env.writeKey(keypool)
 	}
 }
 
