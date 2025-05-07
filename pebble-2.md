@@ -1,6 +1,7 @@
 # Pebble Read Performance Based on Geth's Workflow
 
-From [pebble.md](./pebble.md), we know that Pebble's performance varies based on different configurations. This document focuses on Pebble's read performance in the context of Geth's workflow.
+In this document, we aim to investigate the performance of Pebble's read operations under the default configuration of Geth.
+We will also examine the performance differences across various database sizes, with a primary focus on read-only and read-write operation scenarios.
 
 ## Geth's Workflow
 
@@ -114,11 +115,14 @@ Read and write request distribution:
 | read 200    | 3130      | 585      | 6220     |
 | read 404    | 2800      | 392      | 5720     |
 
-Note: `read 200` indicates the key was retrieved in the db, while `read 404` indicates the key was not found.
+Note:
+
+- `read 200` indicates the key was retrieved in the db,
+- `read 404` indicates the key was not found.
 
 Key observations:
 
-1. Read operations (both 200 and 404) are significantly more frequent than writes (approximately 3100 times)
+1. Read operations (both 200 and 404) are significantly more frequent than writes (approximately 3100x times)
 2. The frequency of successful and failed reads are roughly equal to 1:1
 
 #### Ethdb latency breakdown
@@ -186,7 +190,7 @@ Our initial read benchmark used a stable database without writes, which doesn't 
 
 ### 0. Database Initialization
 
-We can use `geth db inspect` to have a peek of the db distribution in the geth chaindb, this is a result of a running ethereum mainnet [@block 2025-05-06](http://etherscan.io/block/22421889), the result is https://hackmd.io/@jsvisa/HJ2shlweeg, we pay attention to the snapshot parts:
+We can use `geth db inspect` to get a glimpse of the db distribution within the geth chaindb. This analysis is based on a running ethereum mainnet at block 22421889 [@block 2025-05-06](http://etherscan.io/block/22421889). The inspection results can be found at https://hackmd.io/@jsvisa/HJ2shlweeg, we pay attention to the snapshot parts:
 
 | Category         | Total Size | Count      | Avg Value Size |
 | ---------------- | ---------- | ---------- | -------------- |
@@ -206,16 +210,16 @@ Key arguments:
 
 1. `-keysize 65B` Key-Value key size as 65 bytes
 2. `-valuesize 16B` Key-Value value size as 16bytes
-3. `-size 100gb` Write 100GB of key-value pairs into the PebbleDB
-4. `-test geth-default` Use [geth's configuration](https://github.com/ethereum/go-ethereum/blob/master/ethdb/pebble/pebble.go#L190) for writing
+3. `-size 100gb` Write 100GB of key-value pairs into the database
+4. `-test geth-default` Use [geth's configuration](https://github.com/ethereum/go-ethereum/blob/master/ethdb/pebble/pebble.go#L190) for writing, too speed up the writing process, here we use `async` write.
 
 ### 1. 100GB test
 
-After the write process(about 2hours), we go about 116GB data in the database, so the Space Amplifier is 1.16;
+After the write process, which lasted approximately 2hours, the database accumulated around 116GB, so the Space Amplifier is 1.16;
 
 #### read-only
 
-Now let's start with db read-only mode test on that db:
+Now let's begin the read-only mode test on this db:
 
 ```bash
 pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default
@@ -248,7 +252,11 @@ pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read
 
 In this test case,we append the `-sidewrite -valuesize 1kb` parameters to the command line.
 
-This will launch a goroutine to write data into the testing database. Specifically, the goroutine will write 1KB of data into the database at a rate of 100 requests per second. Additionally, every minute it will perform a burst write of 500 MB of data into the database.
+This will launch a goroutine to write data into the testing database. Specifically, the goroutine
+
+- will write 1KB of data into the database at a rate of 100 requests per second
+- every minute it will perform a burst write of 500 MB of data into the database
+- use `sync` write(the same as geth's workflow)
 
 > The write bandwidth is about 9mb/s:
 >
@@ -271,32 +279,42 @@ Key findings:
 
 ### 500GB test
 
-Let's writing +400GB into the db, before writing, the db size:
+Let's proceed with writing an additional 400 GB into the database, let the database reaches 500GB. Before we start the write process, the current database size is:
 
 ```bash
 du -sh /md2/pb2/testdb-geth-default
 147GB
 ```
 
+The write process is the same to 100GB, change the `-size 100gb` to `-size 400gb`:
+
 ```bash
 pdb-writebench -keysize 65b -valuesize 16b -dir /md0/pb2 -test geth-default -size 400gb -keydir /md2/pb-keys -logdir pb-testlogs
 ```
 
+After the write process, which lasted approximately **16hours**, the database accumulated around 483GB, so the Space Amplifier is (483-147)/400 =0.84.
+
+Compared with the 100GB which takes 2 hours to process, now 400GB requires 16 hours. This indicates that the performance difference is twice as much as that of 100GB.
+
 #### read-only
 
-Now let's start with db read-only mode test on that db:
+Use the same command as 100GB's:
 
 ```bash
 pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default
 ```
 
 > Read QPS
+>
+> ![image-20250507120605457](assets/image-20250507120605457.png)
 
 > Read Latency
-
-> Compaction count
+>
+> ![image-20250507120624536](assets/image-20250507120624536.png)
 
 Key findings:
+
+1. The variation of performance is similar to that of 100GB. Both have a relatively high latency during the initial stage, and then gradually stabilize.
 
 #### read-write
 
@@ -311,16 +329,30 @@ In this test case,we append the `-sidewrite -valuesize 1kb` parameters to the co
 **After the write process, the db reached to XXXGB**
 
 > Read QPS
+>
+> ![image-20250507143100502](assets/image-20250507143100502.png)
 
 > Read latency
+>
+> ![image-20250507143113928](assets/image-20250507143113928.png)
 
 Key findings:
+
+1. The read perfromance is really bad, the latency reached to 3ms!
+
+In order to ensure the smooth progress of the experiment, we manually performed full compaction on the database. The compaction of 500GB costs 90minutes.
+
+This slow speed might be due to the performance of the disk. From the monitoring, during the compaction process, the read/write bandwidth was only 113MB/s.
+
+![image-20250507161600664](assets/image-20250507161600664.png)
+
+After the compaction, let's retest the read-only and read-write performance, put the test results as below:
 
 ### 3TB test
 
 #### read-only
 
-Now let's start with db read-only mode test on that db:
+Use the same command as 100GB's:
 
 ```bash
 pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default
@@ -344,7 +376,7 @@ Key findings:
 
 #### read-write
 
-Then test with the read-write mode
+Then test with the read-write mode:
 
 ```bash
 pdb-readbench -keysize 65b -keydir /md2/pb-keys/geth-default -logdir pebble-read-logs -dir /md0/pb2/testdb-geth-default -size 100mb -keyrandom 50 -test geth-default -sidewrite -valuesize 1kb
@@ -376,31 +408,33 @@ Key findings:
 
 > Read Only Latency
 
-| DB Size    | Mean(us) | Min(us) | Max(us) |
-| ---------- | -------- | ------- | ------- |
-| 100GB(200) | 149      | 133     | 155     |
-| 100GB(404) | 148      | 134     | 154     |
-| 500GB(200) |          |         |         |
-| 500GB(404) |          |         |         |
-| 3TB(200)   | 392      | 327     | 524     |
-| 3TB(404)   | 393      | 327     | 526     |
+| DB Size    | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
+| ---------- | ------------ | ----------- | ----------- |
+| 100GB(200) | 149          | 133         | 155         |
+| 100GB(404) | 148          | 134         | 154         |
+| 500GB(200) | 269          | 260         | 376         |
+| 500GB(404) | 269          | 260         | 376         |
+| 3TB(200)   | 392          | 327         | 524         |
+| 3TB(404)   | 393          | 327         | 526         |
 
 > Read Write
 
-| DB Size    | Mean(us) | Min(us) | Max(us) |
-| ---------- | -------- | ------- | ------- |
-| 100GB(200) | 335      | 91.7    | 875     |
-| 100GB(404) | 347      | 114     | 838     |
-| 500GB(200) |          |         |         |
-| 500GB(404) |          |         |         |
-| 3TB(200)   | 624      | 208     | 1060    |
-| 3TB(404)   | 691      | 332     | 1100    |
+| DB Size    | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
+| ---------- | ------------ | ----------- | ----------- |
+| 100GB(200) | 335          | 91.7        | 875         |
+| 100GB(404) | 347          | 114         | 838         |
+| 500GB(200) |              |             |             |
+| 500GB(404) |              |             |             |
+| 3TB(200)   | 624          | 208         | 1060        |
+| 3TB(404)   | 691          | 332         | 1100        |
 
-The benchmark results demonstrate that Pebble's performance in Geth's workflow is heavily influenced by configuration settings and workload patterns. While read performance is generally good under stable conditions, it can degrade significantly during compaction operations. The optimal configuration depends on the specific workload, available resources, and performance requirements.
+Hints:
 
-Key takeaways:
+1. For the `mean` value, we removed the latency period at the beginning of the benchmark and instead used the time at the middle stage.
 
-1. Read performance is more critical than write performance in Geth's workflow
-2. The read latency is stable to ~100us under a stable db
-3. The read latency may degrade to as low as 1ms when a large volume of data is written and compaction occurs
-4. Compaction management is crucial for maintaining consistent performance
+Key findings:
+
+1. Read Performance Degradation: as the database size increases, read performance tends to deteriorate. However, the degradation is relatively moderate and predictable.
+2. Read Stability: Larger database sizes lead to decreased read stability, as measured by the difference between the maximum and minimum read latencies.
+3. Read-Write vs. Read-Only Workloads: The performance of read-write operations is approximately 1.5 times worse than that of read-only operations.
+4. Performance of Non-Existent Key Retrieval: Retrieving non-existent keys is slightly worse in performance compared to retrieving existing keys, especially under read-write workloads.
