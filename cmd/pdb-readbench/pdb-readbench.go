@@ -476,13 +476,13 @@ func (b *randomRead) Benchmark(dir string, env *bench.ReadEnv) error {
 	go bench.CollectPebbleMetrics(db, done)
 	defer func() { done <- struct{}{} }()
 
-	batch := db.NewBatch()
+	batch := db.NewBatchWithSize(256 * bench.MiB * 11 / 10)
 	bsize := 0
 	return env.Run(func(key, value string, lastCall bool) error {
 		batch.Set([]byte(key), []byte(value), nil)
 		bsize += len(key) + len(value)
-		if bsize >= 100*bench.KiB || lastCall {
-			if err := batch.Commit(nil); err != nil {
+		if bsize >= 256*bench.MiB || lastCall {
+			if err := batch.Commit(pebble.NoSync); err != nil {
 				return err
 			}
 			bsize = 0
