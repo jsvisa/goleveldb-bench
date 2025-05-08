@@ -3,6 +3,81 @@
 In this document, we aim to investigate the performance of Pebble's read operations under the default configuration of Geth.
 We will also examine the performance differences across various database sizes, with a primary focus on read-only and read-write operation scenarios.
 
+## Setup and Usage Instructions
+
+### Monitoring Stack Setup
+
+This benchmark uses a monitoring stack consisting of Prometheus for metrics collection, Grafana for visualization, and Node Exporter for system metrics.
+
+2. Start the monitoring services:
+
+```bash
+docker compose up -d
+```
+
+3. Access the monitoring interfaces:
+
+- Grafana: http://localhost:3000 (default credentials: admin/admin)
+- Prometheus: http://localhost:9090
+
+### Benchmark Tools
+
+The benchmark uses two main tools: `pdb-writebench` for write performance testing and `pdb-readbench` for read performance testing.
+
+#### Building the Tools
+
+```bash
+# Build both benchmark tools
+go install ./cmd/pdb-writebench
+go install ./cmd/pdb-readbench
+```
+
+#### pdb-writebench
+
+A tool for benchmarking Pebble DB write performance. It can generate datasets of various sizes and test different write configurations.
+
+Key features:
+
+- Supports different database sizes (e.g., 100GB, 500GB, 3TB)
+- Configurable key and value sizes
+- Multiple write strategies (batch, no-batch, concurrent)
+- Prometheus metrics integration
+- Simulates Geth's workflow with `-test geth-default`
+
+Example usage:
+
+```bash
+pdb-writebench -keysize 65b -valuesize 16b -dir /path/to/db -test geth-default -size 100gb -keydir /path/to/keys -logdir logs
+```
+
+#### pdb-readbench
+
+A tool for benchmarking Pebble DB read performance in both read-only and read-write modes.
+
+Key features:
+
+- Read-only and read-write testing modes
+- Configurable key distribution
+- Side-write thread for simulating concurrent writes
+- Prometheus metrics integration
+- Simulates Geth's workflow with `-test geth-default`
+
+Example usage:
+
+```bash
+# Read-only mode
+pdb-readbench -keysize 65b -keydir /path/to/keys -logdir logs -dir /path/to/db -size 100mb -keyrandom 50 -test geth-default
+
+# Read-write mode with side writes
+pdb-readbench -keysize 65b -keydir /path/to/keys -logdir logs -dir /path/to/db -size 100mb -keyrandom 50 -test geth-default -sidewrite -valuesize 1kb
+```
+
+The side-write thread in read-write mode:
+
+- Writes 1KB of data at 100 requests per second
+- Performs a burst write of 500MB every minute
+- Uses sync writes (same as Geth's workflow)
+
 ## Geth's Workflow
 
 We use `geth import` to simulate the block insertion process and analyze Pebble's performance during this operation.
@@ -343,21 +418,17 @@ Key findings:
 
 1. The read perfromance is really bad, the latency reached to 3ms!
 
-In order to ensure the smooth progress of the experiment, we manually performed full compaction on the database. The compaction of 500GB costs 90minutes.
+In order to ensure the smooth progress of the experiment, we use [cmd/pebble-compact](./cmd/pebble-compact/) to do manually performed full compaction on the database. The compaction of 500GB costs 90minutes.
 
 This slow speed might be due to the performance of the disk. From the monitoring, during the compaction process, the read/write bandwidth was only 113MB/s.
 
 ![image-20250507161600664](assets/image-20250507161600664.png)
 
-
-
 After the compaction, let's retest the read-only and read-write performance, put the test results as below
 
 #### read-only after compaction
 
-
-
-> Read QPS 
+> Read QPS
 
 ![image-20250508151301257](assets/image-20250508151301257.png)
 
@@ -442,7 +513,7 @@ Key findings:
 
 ##### Conclusions
 
-> Read Only Latency
+> Read Latency On read-only workload
 
 | DB Size       | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
 | :------------ | ------------ | ----------- | ----------- |
@@ -455,7 +526,7 @@ Key findings:
 | 3TB(200) AC   | 392          | 327         | 524         |
 | 3TB(404) AC   | 393          | 327         | 526         |
 
-> Read Write
+> Read Latency On read-write workload
 
 | DB Size       | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
 | ------------- | ------------ | ----------- | ----------- |
@@ -475,7 +546,46 @@ Hints:
 
 Key findings:
 
-1. Read Performance Degradation: as the database size increases, read performance tends to deteriorate. However, the degradation is relatively moderate and predictable.
-2. Read Stability: Larger database sizes lead to decreased read stability, as measured by the difference between the maximum and minimum read latencies.
-3. Read-Write vs. Read-Only Workloads: The performance of read-write operations is approximately 1.5 times worse than that of read-only operations.
-4. Performance of Non-Existent Key Retrieval: Retrieving non-existent keys is slightly worse in performance compared to retrieving existing keys, especially under read-write workloads.
+1. **Database Size Impact**
+
+   - Read performance degrades as database size increases
+   - 100GB database shows stable performance (~130μs mean latency)
+   - 500GB database shows moderate degradation (~200μs mean latency)
+   - 3TB database shows significant degradation (~400μs mean latency)
+
+2. **Read-Write vs Read-Only Performance**
+
+   - Read-write workloads show significantly higher latency than read-only workloads
+   - 100GB: 130μs (read-only) vs 360μs (read-write)
+   - 500GB: 200μs (read-only) vs 550μs (read-write)
+   - 3TB: 400μs (read-only) vs 700μs (read-write)
+
+3. **Compaction Impact**
+
+   - Manual compaction significantly improves read performance
+   - 500GB database:
+     - Before compaction: ~3ms read latency
+     - After compaction: ~200μs read latency (15x improvement)
+   - Compaction process:
+     - Takes ~90 minutes for 500GB database
+     - Limited by disk I/O bandwidth (113MB/s)
+     - Suggests potential for optimization in compaction strategy
+
+4. **Key Distribution**
+
+   - Read latency for non-existent keys (404) is consistently higher than existing keys (200)
+   - This pattern is more pronounced in read-write workloads
+   - Possible reasons:
+     1. Bloom filter false positives: Even when using bloom filters, some non-existent keys may trigger unnecessary SSTable reads
+     2. Search path: For existing keys, the search can stop as soon as the key is found, while non-existent keys require checking all possible locations
+     3. Cache behavior: Existing keys are more likely to be cached due to temporal locality, while non-existent keys always require a full search
+   - 500GB database examples:
+     - Existing keys: 194μs mean latency
+     - Non-existent keys: 267μs mean latency (1.37x higher)
+   - Pattern consistent across different database sizes
+
+5. **Performance Stability**
+   - Read-only workloads show more stable performance
+   - Read-write workloads show gradual degradation over time, side-write thread (100 req/s + 500MB burst/min) significantly impacts read performance
+   - Initial performance is poor due to compaction activity
+   - Performance stabilizes after initial setup period
