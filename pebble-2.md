@@ -368,13 +368,21 @@ After the compaction, let's retest the read-only and read-write performance, put
 Key findings:
 
 1. After the compaction, the read latency is way better than before the compaction, it reached to ~200us again
-2. After the compaction, the read 404's latency is 1.37x times of read 202
-
-
+2. After the compaction, the read 404's latency is 1.37x times of read 202's
 
 #### read-write after compaction
 
+> Read QPS
 
+![image-20250508154140713](assets/image-20250508154140713.png)
+
+> Read Latency
+
+![image-20250508154200779](assets/image-20250508154200779.png)
+
+Key findings:
+
+1. Similar to the read-only case, the read 404's latency is 1.43x times of read 202's
 
 ### 3TB test
 
@@ -455,8 +463,8 @@ Key findings:
 | 100GB(404) BC | 347          | 114         | 838         |
 | 500GB(200) BC | **2130**     | 278         | **2910**    |
 | 500GB(404) BC | **2150**     | 281         | **2980**    |
-| 500GB(200) AC |              |             |             |
-| 500GB(404) AC |              |             |             |
+| 500GB(200) AC | 383          | 196         | 561         |
+| 500GB(404) AC | 551          | 275         | 814         |
 | 3TB(200) AC   | 624          | 208         | **1060**    |
 | 3TB(404) AC   | 691          | 332         | **1100**    |
 
