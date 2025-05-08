@@ -210,8 +210,11 @@ Key arguments:
 
 1. `-keysize 65B` Key-Value key size as 65 bytes
 2. `-valuesize 16B` Key-Value value size as 16bytes
-3. `-size 100gb` Write 100GB of key-value pairs into the database
-4. `-test geth-default` Use [geth's configuration](https://github.com/ethereum/go-ethereum/blob/master/ethdb/pebble/pebble.go#L190) for writing, too speed up the writing process, here we use `async` write.
+3. `-dir /md0/pb-dataset` Use this path to store the pebble db
+4. `-test geth-default` Use [geth's configuration](https://github.com/ethereum/go-ethereum/blob/master/ethdb/pebble/pebble.go#L190) for writing, too speed up the writing process, here we use `async` write
+5. `-size 100gb` Write 100GB of key-value pairs into the database
+6. `-keydir /md1/pb-keys` Use this path to store the keys, to minimize the impact of the disk io bandwidth, it is recommended to set this directory to a different disk from that of Pebble used(`-dir`)
+7. `-logdir pb-testlogs` Used to store the progress logs
 
 ### 1. 100GB test
 
@@ -346,7 +349,32 @@ This slow speed might be due to the performance of the disk. From the monitoring
 
 ![image-20250507161600664](assets/image-20250507161600664.png)
 
-After the compaction, let's retest the read-only and read-write performance, put the test results as below:
+
+
+After the compaction, let's retest the read-only and read-write performance, put the test results as below
+
+#### read-only after compaction
+
+
+
+> Read QPS 
+
+![image-20250508151301257](assets/image-20250508151301257.png)
+
+> Read Latency
+
+![image-20250508151316787](assets/image-20250508151316787.png)
+
+Key findings:
+
+1. After the compaction, the read latency is way better than before the compaction, it reached to ~200us again
+2. After the compaction, the read 404's latency is 1.37x times of read 202
+
+
+
+#### read-write after compaction
+
+
 
 ### 3TB test
 
@@ -408,28 +436,33 @@ Key findings:
 
 > Read Only Latency
 
-| DB Size    | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
-| ---------- | ------------ | ----------- | ----------- |
-| 100GB(200) | 149          | 133         | 155         |
-| 100GB(404) | 148          | 134         | 154         |
-| 500GB(200) | 269          | 260         | 376         |
-| 500GB(404) | 269          | 260         | 376         |
-| 3TB(200)   | 392          | 327         | 524         |
-| 3TB(404)   | 393          | 327         | 526         |
+| DB Size       | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
+| :------------ | ------------ | ----------- | ----------- |
+| 100GB(200) BC | 149          | 133         | 155         |
+| 100GB(404) AC | 148          | 134         | 154         |
+| 500GB(200) BC | 269          | 260         | 376         |
+| 500GB(404) BC | 269          | 260         | 376         |
+| 500GB(200) AC | 194          | 177         | 204         |
+| 500GB(404) AC | 267          | 262         | 298         |
+| 3TB(200) AC   | 392          | 327         | 524         |
+| 3TB(404) AC   | 393          | 327         | 526         |
 
 > Read Write
 
-| DB Size    | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
-| ---------- | ------------ | ----------- | ----------- |
-| 100GB(200) | 335          | 91.7        | 875         |
-| 100GB(404) | 347          | 114         | 838         |
-| 500GB(200) |              |             |             |
-| 500GB(404) |              |             |             |
-| 3TB(200)   | 624          | 208         | 1060        |
-| 3TB(404)   | 691          | 332         | 1100        |
+| DB Size       | Mean(**μs**) | Min(**μs**) | Max(**μs**) |
+| ------------- | ------------ | ----------- | ----------- |
+| 100GB(200) BC | 335          | 91.7        | 875         |
+| 100GB(404) BC | 347          | 114         | 838         |
+| 500GB(200) BC | **2130**     | 278         | **2910**    |
+| 500GB(404) BC | **2150**     | 281         | **2980**    |
+| 500GB(200) AC |              |             |             |
+| 500GB(404) AC |              |             |             |
+| 3TB(200) AC   | 624          | 208         | **1060**    |
+| 3TB(404) AC   | 691          | 332         | **1100**    |
 
 Hints:
 
+1. AC = before compaction; BC = after compaction
 1. For the `mean` value, we removed the latency period at the beginning of the benchmark and instead used the time at the middle stage.
 
 Key findings:
