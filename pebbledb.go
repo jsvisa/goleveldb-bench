@@ -86,47 +86,6 @@ var (
 		Name: "pebble_filter_miss",
 		Help: "The number of filter misses",
 	})
-
-	memtableCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_memtable_count",
-		Help: "The number of memtables",
-	})
-	memtableSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_memtable_size",
-		Help: "The size of the memtable",
-	})
-	memtableZombieSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_memtable_zombie_size",
-		Help: "The size of the zombie memtable",
-	})
-	memtableZombieCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_memtable_zombie_count",
-		Help: "The number of zombie memtables",
-	})
-	tableObsoleteSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_table_obsolete_size",
-		Help: "The size of the obsolete tables",
-	})
-	tableObsoleteCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_table_obsolete_count",
-		Help: "The number of obsolete tables",
-	})
-	tableZombieSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_table_zombie_size",
-		Help: "The size of the zombie tables",
-	})
-	tableZombieCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_table_zombie_count",
-		Help: "The number of zombie tables",
-	})
-	tableBackingTableCount = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_table_backing_table_count",
-		Help: "The number of backing tables",
-	})
-	tableBackingTableSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pebble_table_backing_table_size",
-		Help: "The size of the backing tables",
-	})
 )
 
 func CollectPebbleMetrics(db *pebble.DB, done chan struct{}) {
@@ -158,17 +117,6 @@ func CollectPebbleMetrics(db *pebble.DB, done chan struct{}) {
 			blockCacheMiss.Set(float64(stats.BlockCache.Misses))
 			filterHits.Set(float64(stats.Filter.Hits))
 			filterMiss.Set(float64(stats.Filter.Misses))
-
-			memtableCount.Set(float64(stats.MemTable.Count))
-			memtableSize.Set(float64(stats.MemTable.Size))
-			memtableZombieCount.Set(float64(stats.MemTable.ZombieCount))
-			memtableZombieSize.Set(float64(stats.MemTable.ZombieSize))
-			tableObsoleteCount.Set(float64(stats.Table.ObsoleteCount))
-			tableObsoleteSize.Set(float64(stats.Table.ObsoleteSize))
-			tableZombieCount.Set(float64(stats.Table.ZombieCount))
-			tableZombieSize.Set(float64(stats.Table.ZombieSize))
-			tableBackingTableCount.Set(float64(stats.Table.BackingTableCount))
-			tableBackingTableSize.Set(float64(stats.Table.BackingTableSize))
 		}
 	}
 }
