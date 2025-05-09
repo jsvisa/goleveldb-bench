@@ -170,7 +170,6 @@ var tests = map[string]Benchmarker{
 	"batch-100kb-mt-4gb-cache-32gb": newBatchWrite(4*GiB, 32*GiB),
 
 	"batch-100kb-mt-1gb-cache-04gb-stopwrite-4": newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MemTableStopWritesThreshold = 4 }),
-	"batch-100kb-mt-1gb-cache-04gb-compact-4":   newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MaxConcurrentCompactions = func() int { return 4 } }),
 	"batch-100kb-mt-1gb-cache-04gb-openfd-10k":  newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.MaxOpenFiles = 10_000 }),
 
 	"batch-100kb-mt-1gb-cache-04gb-bytespersync-1mb":    newBatchWrite(1*GiB, 4*GiB).With(func(opt *pebble.Options) { opt.BytesPerSync = 1 * MiB }),
@@ -223,7 +222,7 @@ func newGethDefault() *batchWrite {
 		MaxOpenFiles:                16384,
 		MemTableSize:                uint64(1 * bench.GiB),
 		MemTableStopWritesThreshold: 2,
-		MaxConcurrentCompactions:    runtime.NumCPU,
+		CompactionConcurrencyRange:  func() (lower, upper int) { return 3, runtime.NumCPU() },
 		Levels:                      make([]pebble.LevelOptions, 7),
 	}
 	for i := range opt.Levels {
@@ -235,6 +234,16 @@ func newGethDefault() *batchWrite {
 		l.EnsureDefaults()
 	}
 	opt.Experimental.ReadSamplingMultiplier = -1
+	opt.Experimental.ReadSamplingMultiplier = -1
+	opt.FormatMajorVersion = pebble.FormatExperimentalValueSeparation
+	opt.Experimental.EnableColumnarBlocks = func() bool { return true }
+	opt.Experimental.ValueSeparationPolicy = func() pebble.ValueSeparationPolicy {
+		return pebble.ValueSeparationPolicy{
+			Enabled:               true,
+			MinimumSize:           32,
+			MaxBlobReferenceDepth: 10,
+		}
+	}
 
 	return &batchWrite{
 		Options:   opt,

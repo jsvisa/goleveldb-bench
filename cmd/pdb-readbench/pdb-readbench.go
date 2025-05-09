@@ -184,7 +184,7 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(1 * bench.GiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
+			CompactionConcurrencyRange:  func() (lower, upper int) { return 3, runtime.NumCPU() },
 			Levels:                      make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
@@ -196,6 +196,15 @@ var tests = map[string]Benchmarker{
 			l.EnsureDefaults()
 		}
 		opt.Experimental.ReadSamplingMultiplier = -1
+		opt.FormatMajorVersion = pebble.FormatExperimentalValueSeparation
+		opt.Experimental.EnableColumnarBlocks = func() bool { return true }
+		opt.Experimental.ValueSeparationPolicy = func() pebble.ValueSeparationPolicy {
+			return pebble.ValueSeparationPolicy{
+				Enabled:               true,
+				MinimumSize:           32,
+				MaxBlobReferenceDepth: 10,
+			}
+		}
 
 		return opt
 	}()},
@@ -206,8 +215,8 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(64 * bench.MiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -229,8 +238,8 @@ var tests = map[string]Benchmarker{
 			MemTableSize:                uint64(1 * bench.GiB),
 			L0StopWritesThreshold:       1000,
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -252,8 +261,8 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(1 * bench.GiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -275,8 +284,8 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(1 * bench.GiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -297,8 +306,8 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(1 * bench.GiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -320,8 +329,8 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(1 * bench.GiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -344,9 +353,9 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(1 * bench.GiB),
 			MemTableStopWritesThreshold: 2,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
-			FlushSplitBytes:             2 << 20,
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels:          make([]pebble.LevelOptions, 7),
+			FlushSplitBytes: 2 << 20,
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -368,8 +377,8 @@ var tests = map[string]Benchmarker{
 			MaxOpenFiles:                16384,
 			MemTableSize:                uint64(64 * bench.MiB),
 			MemTableStopWritesThreshold: 1000,
-			MaxConcurrentCompactions:    runtime.NumCPU,
-			Levels:                      make([]pebble.LevelOptions, 7),
+			// MaxConcurrentCompactions:    runtime.NumCPU,
+			Levels: make([]pebble.LevelOptions, 7),
 		}
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
@@ -404,8 +413,8 @@ func newGethRead(cache int) *randomRead {
 		Cache:                       pebble.NewCache(int64(cache)),
 		MemTableSize:                uint64(4*bench.GiB - 2),
 		MemTableStopWritesThreshold: 2,
-		MaxConcurrentCompactions:    runtime.NumCPU,
-		Levels:                      make([]pebble.LevelOptions, 7),
+		// MaxConcurrentCompactions:    runtime.NumCPU,
+		Levels: make([]pebble.LevelOptions, 7),
 	}
 	for i := range opt.Levels {
 		l := &opt.Levels[i]
@@ -430,7 +439,7 @@ func newPebbleRead(cache int) *randomRead {
 		opt.MaxOpenFiles = 16384
 		opt.MemTableSize = 64 << 20
 		opt.MemTableStopWritesThreshold = 4
-		opt.MaxConcurrentCompactions = func() int { return 3 }
+		// opt.MaxConcurrentCompactions = func() int { return 3 }
 
 		for i := range opt.Levels {
 			l := &opt.Levels[i]
