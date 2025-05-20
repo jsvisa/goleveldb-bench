@@ -548,7 +548,7 @@ Key findings:
 
 Hints:
 
-1. AC = before compaction; BC = after compaction
+1. AC = after compaction; BC = before compaction
 1. For the `mean` value, we removed the latency period at the beginning of the benchmark and instead used the time at the middle stage.
 
 Key findings:
