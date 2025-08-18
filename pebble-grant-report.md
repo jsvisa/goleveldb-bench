@@ -11,7 +11,7 @@ assessing their impact on overall performance under real-world workloads.
 - **Phase 1**: Pebble Performance Benchmarking (4 weeks) ✅
 - **Phase 2**: Chain Height and State Size Analysis (4 weeks) ✅
 - **Phase 3**: Real-World Testing and Validation (8 weeks) ❌
-- **Phase 4**: Database and Geth Optimizations (8 weeks) ✅
+- **Phase 4**: Database and Geth Optimizations (8 weeks) ❌
 
 ## Phase 1: Pebble Performance Benchmarking
 
@@ -220,9 +220,11 @@ Using `geth import` to simulate real block insertion processes revealed:
 
 ## Phase 3: Real-World Testing and Validation
 
+❌ **Real-World Testing and Validation**
 ✅ **Collaborative Development with Bloatnet Project**
 
-As @CPerezz and other members are already working on the shadow state testing, so I collaborated with them to develop a custom Geth client for large-scale database testing, the main contributes as below:
+As @CPerezz and other members are already working on the shadow state testing, so I collaborated with them to develop a custom Geth client for large-scale database testing,
+the main contributes as below:
 
 - [#542 · gballet/go-ethereum](https://github.com/gballet/go-ethereum/pull/542): support run geth with `--bloatnet` override flag
 - [#545 · gballet/go-ethereum](https://github.com/gballet/go-ethereum/pull/545): add state size metrics, used to measure the state size growth
@@ -230,11 +232,15 @@ As @CPerezz and other members are already working on the shadow state testing, s
 
 ## Phase 4: Database and Geth Optimizations
 
-Because my skills do not lie in the optimization of the database's underlying structure, and we're going to use the Block Access List (BAL) to mitigate the read amplification issue,
-so I shifted my focus from database-level optimizations to application-level performance improvements in Geth. In this phase, I identified and addressed some performance bottlenecks
-within Geth code, especially in the pathdb indexing module, and also find some bugs in the history state indexing module.
+❌ **Database and Geth Optimizations **
 
-## Pull Requests and Code Contributions
+Because my skills do not lie in the optimization of the database's underlying structure, and we're going to use the Block Access List (BAL) to mitigate the read amplification issue,
+so I shifted my focus from database-level optimizations to application-level performance improvements in Geth.
+
+In this phase, I identified and addressed some performance bottlenecks within Geth code, especially in the pathdb indexing module,
+and also find some bugs in the history state indexing module.
+
+✅ **Pull Requests and Code Contributions**
 
 Here are the full list of merged pull requests and code contributions made during the project:
 
