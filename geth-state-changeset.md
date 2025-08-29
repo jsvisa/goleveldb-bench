@@ -33,6 +33,22 @@ Here are the fields explained:
 - `trienodeSize`: The size of the trie nodes created in bytes.
 - `codeSize`: The size of the codes created in bytes.
 
+### Important Note on Contract Code Storage and Measurement Discrepancies
+
+**Contract Code Deduplication in Geth:**
+Geth uses `CodePrefix + CodeHash` as the database key, where the CodeHash is derived from the contract's bytecode. This design ensures that identical bytecode is stored only once in the database, regardless of how many contracts share the same code.
+
+**Measurement Methodology vs. Actual Storage:**
+Our state size tracing framework counts contract code by individual contract addresses, which creates a discrepancy with the actual database storage:
+
+- **Tracing Framework Count**: Each contract deployment is counted separately, even if multiple contracts share identical bytecode
+- **Actual Database Storage**: Identical bytecode is deduplicated and stored only once using the hash-based key system
+- **Impact**: This leads to an overestimation of code storage size in our measurements compared to the actual state trie size
+
+And in the meanwhile, our tracing framework only counts the creation of contract code, for the selfdestructed contract are not deducated.
+
+## Full sync from genesis
+
 So we run Geth in full-sync from genesis, and it will output all the state changes. After we get all those JSON lines, we can load those lines into a database, and then we can query the database to get the state changes over time.
 
 [datasets/daily-states.csv](./datasets/daily-states.csv) is a daily aggregated result of the state changes, from the result we can see the state changes over time, and we can also see the size of the state trie, which is a good indicator of the network's health.
@@ -54,22 +70,22 @@ Here we summarize the yearly state changes in Geth from 2015 to 2025, focusing o
 | Year | State Size | Trienode Size | Code Size |
 | ---- | ---------- | ------------- | --------- |
 | 2015 | 0.03       | 0.05          | 0.01      |
-| 2016 | 0.19       | 0.40          | 0.16      |
-| 2017 | 2.92       | 7.47          | 2.13      |
-| 2018 | 10.0       | 22.63         | 3.60      |
-| 2019 | 7.94       | 17.94         | 3.77      |
-| 2020 | 11.51      | 26.17         | 4.30      |
-| 2021 | 16.0       | 36.20         | 4.07      |
-| 2022 | 22.05      | 45.77         | 4.78      |
-| 2023 | 16.17      | 35.33         | 5.37      |
-| 2024 | 10.55      | 26.08         | 3.63      |
-| 2025 | 8.56       | 20.02         | 2.50      |
+| 2016 | 0.18       | 0.40          | 0.16      |
+| 2017 | 3.31       | 7.47          | 2.13      |
+| 2018 | 10.68      | 22.63         | 3.60      |
+| 2019 | 8.45       | 17.94         | 3.77      |
+| 2020 | 12.26      | 26.17         | 4.30      |
+| 2021 | 16.83      | 36.20         | 4.07      |
+| 2022 | 22.79      | 45.77         | 4.78      |
+| 2023 | 16.92      | 35.33         | 5.37      |
+| 2024 | 11.28      | 26.08         | 3.63      |
+| 2025 | 9.24       | 20.02         | 2.50      |
 
-### Summary Statistics
+## Summary Statistics
 
 | Category      | Total Increase | Average/Year | Max Year Increase |
 | ------------- | -------------- | ------------ | ----------------- |
-| State Size    | 105.87 GB      | 9.62 GB      | 22.05 GB          |
+| State Size    | 111.97 GB      | 10.18 GB     | 22.79 GB          |
 | Trienode Size | 238.07 GB      | 21.64 GB     | 45.77 GB          |
 | Code Size     | 34.31 GB       | 3.12 GB      | 5.37 GB           |
 
@@ -101,21 +117,21 @@ Here we summarize the yearly state changes in Geth from 2015 to 2025, focusing o
 
 **1. Trienode Dominance**
 
-- Trienodes account for **63%** of total state growth (238.07 GB out of 378.25 GB total)
-- Trienode growth rate is **2.2x higher** than state data growth on average (21.64 GB vs 9.62 GB per year)
+- Trienodes account for **62%** of total state growth (238 GB out of 383 GB total)
+- Trienode growth rate is **2.2x higher** than state data growth on average (21.64 GB vs 10.18 GB per year)
 - Peak trienode growth occurred in **2022** with 45.77 GB increase
 
 **2. State Size Growth Trajectory**
 
 - Highest growth period: **2017-2022** (DeFi boom era)
-- Peak state growth in **2022**: 22.05 GB (2.3x the average)
+- Peak state growth in **2022**: 22.79 GB (2.3x the average)
 - Recent decline: **2023-2025** showing **29% reduction** in growth rate compared to peak years (2020-2022)
 
 **3. Smart Contract Code Evolution**
 
 - Steady growth with **peak in 2023** (5.37 GB) - coinciding with increased smart contract complexity
 - Code size growth is the most **stable category** with lowest variance
-- Total code represents **9.1%** of overall state growth
+- Total code represents **9.1%** of overall state growth, actual db storage is lower due to deduplication
 
 ### Temporal Analysis
 

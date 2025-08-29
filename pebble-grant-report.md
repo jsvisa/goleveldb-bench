@@ -151,35 +151,35 @@ Here is the stacked size of Ethereum state size over time with stacked categorie
 | Year | State Size | Trienode Size | Code Size |
 | ---- | ---------- | ------------- | --------- |
 | 2015 | 0.03       | 0.05          | 0.01      |
-| 2016 | 0.19       | 0.40          | 0.16      |
-| 2017 | 2.92       | 7.47          | 2.13      |
-| 2018 | 10.0       | 22.63         | 3.60      |
-| 2019 | 7.94       | 17.94         | 3.77      |
-| 2020 | 11.51      | 26.17         | 4.30      |
-| 2021 | 16.0       | 36.20         | 4.07      |
-| 2022 | 22.05      | 45.77         | 4.78      |
-| 2023 | 16.17      | 35.33         | 5.37      |
-| 2024 | 10.55      | 26.08         | 3.63      |
-| 2025 | 8.56       | 20.02         | 2.50      |
+| 2016 | 0.18       | 0.40          | 0.16      |
+| 2017 | 3.31       | 7.47          | 2.13      |
+| 2018 | 10.68      | 22.63         | 3.60      |
+| 2019 | 8.45       | 17.94         | 3.77      |
+| 2020 | 12.26      | 26.17         | 4.30      |
+| 2021 | 16.83      | 36.20         | 4.07      |
+| 2022 | 22.79      | 45.77         | 4.78      |
+| 2023 | 16.92      | 35.33         | 5.37      |
+| 2024 | 11.28      | 26.08         | 3.63      |
+| 2025 | 9.24       | 20.02         | 2.50      |
 
 #### 2. Key Growth Insights
 
 #### Trienodes as Primary Growth Driver
 
-- Trienodes consistently represent the largest contributor to state growth, account for **63%** of total state growth (238.07 GB out of 378.25 GB total)
+- Trienodes consistently represent the largest contributor to state growth, account for **62%** of total state growth (238 GB out of 383 GB total)
 - Recent trend: 2.56 GiB/month average (26.08 GiB in 2024, 20.02 GiB projected for 2025)
 - Trienode growth rate is **2.2x higher** than state data growth on average
 - Peak trienode growth occurred in **2022** with 45.77 GB increase
 
 #### State Growth Patterns
 
-- Recent trend: 1.05 GiB/month average (10.55 GiB in 2024, 8.56 GiB projected for 2025)
+- Recent trend: 1.14 GiB/month average (11.28 GiB in 2024, 9.24 GiB projected for 2025)
 - Correlation with major network events (DeFi Summer, NFT boom, Layer 2 adoption)
 
 #### Code Growth
 
 - Smallest but steadily increasing category
-- Recent average: 0.34 GiB/month (based on 2024-2025 data)
+- Recent average: 0.34 GiB/month (based on 2024-2025 data), actually db occupied size should be smaller due to the same codehash.
 
 #### 3. Network Event Correlations
 
