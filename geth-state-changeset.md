@@ -1,7 +1,6 @@
 # Geth state changes over time
 
-We aim to monitor the state changes in Geth over time, with a particular focus on the state trie.
-This will provide valuable insights into how the Ethereum network's state evolves with each new release of Geth.
+We aim to monitor the state changes in Geth over time, with a particular focus on the state trie. This provides valuable insights into how the Ethereum network's state evolves with each new release of Geth.
 With the recent pull request [eth,core: add a state size live tracer by jsvisa · Pull Request #31914 · ethereum/go-ethereum](https://github.com/ethereum/go-ethereum/pull/31914), we now have the capability to track these changes and output them into a JSON file. This file can subsequently be utilized to generate a detailed diff of the state trie, allowing us to analyze the specific modifications and their impact on the network's state.
 
 We can enable the state size live tracer by using the `--tracer` flag when starting Geth. The command would look like this:
@@ -10,7 +9,7 @@ We can enable the state size live tracer by using the `--tracer` flag when start
 geth --vmtrace=state --vmtrace.jsonconfig={"path": "/data/geth-dev-trace", "maxSize": 0}
 ```
 
-It will write each block's state changes into one line, like below:
+It writes each block's state changes into one line, as shown below:
 
 ```
 {"number":141,"hash":"0x81bfd49d2bb8800e6e3edddc0e66286bff7e3cec35d56665c5b1dae376eb005b","time":1748419461,"accounts":0,"storages":2,"trienodes":2,"codes":0,"accountSize":0,"storageSize":102,"trienodeSize":241,"codeSize":0}
@@ -34,88 +33,111 @@ Here are the fields explained:
 - `trienodeSize`: The size of the trie nodes created in bytes.
 - `codeSize`: The size of the codes created in bytes.
 
-So we run Geth in full-sync from genesis, and it will output all the state changes, after we get all those json lines, we can load those lines into a database, and then we can query the database to get the state changes over time.
+So we run Geth in full-sync from genesis, and it will output all the state changes. After we get all those JSON lines, we can load those lines into a database, and then we can query the database to get the state changes over time.
 
-[datasets/monthly-state-snapshot.csv](./datasets/monthly-state-snapshot.csv) is a monthly aggrgated result of the state changes, from the result we can see the state changes over time, and we can also see the size of the state trie, which is a good indicator of the network's health.
+[datasets/daily-states.csv](./datasets/daily-states.csv) is a daily aggregated result of the state changes, from the result we can see the state changes over time, and we can also see the size of the state trie, which is a good indicator of the network's health.
 
-> Count Over Time
+### Size Over Time
 
-![Count Over Time](./assets/state-count-over-month.png)
+![Size Over Time](./assets/state-over-time.png)
 
-> Size Over Time
+### Count Over Time
 
-![Bytes Over Time](./assets/state-bytes-over-month.png)
-
-> Monthly incrasing of state and trie
-
-![Monthly increase](./assets/state-increase-over-month.png)
+![Count Over Time](./assets/count-over-time.png)
 
 ## Results
 
-### 5. **Notable Spikes and Events**
+Here we summarize the yearly state changes in Geth from 2015 to 2025, focusing on the three main categories: states (accounts + storages), trienodes, and contract codes. The data is aggregated yearly, showing the growth in GB per year for each category.
 
-- **Late 2021–2022:** All categories see higher growth, possibly due to network activity or upgrades.
-- **Apr 2025:** All categories spike, especially trienodes and states.
-- **Occasional dips** (e.g., Dec 2023) but overall trend is upward.
+### Yearly State Size Increases (GB)
 
-### 6. **Recent 18 Months (2024–2025)**
+| Year | State Size | Trienode Size | Code Size |
+| ---- | ---------- | ------------- | --------- |
+| 2015 | 0.03       | 0.05          | 0.01      |
+| 2016 | 0.19       | 0.40          | 0.16      |
+| 2017 | 2.92       | 7.47          | 2.13      |
+| 2018 | 10.0       | 22.63         | 3.60      |
+| 2019 | 7.94       | 17.94         | 3.77      |
+| 2020 | 11.51      | 26.17         | 4.30      |
+| 2021 | 16.0       | 36.20         | 4.07      |
+| 2022 | 22.05      | 45.77         | 4.78      |
+| 2023 | 16.17      | 35.33         | 5.37      |
+| 2024 | 10.55      | 26.08         | 3.63      |
+| 2025 | 8.56       | 20.02         | 2.50      |
 
-- **States:** 0.49–1.28 GiB/month (average ~0.7 GiB).
-- **Trienodes:** 1.82–4.74 GiB/month (average ~2.7 GiB).
-- **Codes:** 0.20–0.56 GiB/month (average ~0.34 GiB).
-- **Apr 2025** is the highest month for all three.
+### Summary Statistics
 
-### 7. **Implications**
+| Category      | Total Increase | Average/Year | Max Year Increase |
+| ------------- | -------------- | ------------ | ----------------- |
+| State Size    | 105.87 GB      | 9.62 GB      | 22.05 GB          |
+| Trienode Size | 238.07 GB      | 21.64 GB     | 45.77 GB          |
+| Code Size     | 34.31 GB       | 3.12 GB      | 5.37 GB           |
 
-- **Trienodes are the main driver of state growth** and thus the main concern for node storage and performance.
-- **States and codes** are growing steadily, reflecting ongoing account/storage and contract creation.
-- **Sustained growth** means node operators must plan for increasing storage needs.
-
-### 8. **Summary Table **
-
-Here we summarize the monthly state changes in Geth from 2015 to 2025, focusing on the three main categories: states (accounts + storages), trienodes, and codes.
-The data is aggregated monthly, showing the growth in GiB per month for each category.
-
-| Year | States (GiB/mo) | Trienodes (GiB/mo) | Codes (GiB/mo) |
-| ---- | --------------- | ------------------ | -------------- |
-| 2015 | 0               | 0                  | 0              |
-| 2016 | 0.01            | 0.03               | 0.01           |
-| 2017 | 0.13            | 0.46               | 0.14           |
-| 2018 | 0.49            | 1.92               | 0.31           |
-| 2019 | 0.4             | 1.47               | 0.32           |
-| 2020 | 0.6             | 2.18               | 0.35           |
-| 2021 | 0.76            | 2.86               | 0.33           |
-| 2022 | 1.06            | 3.74               | 0.39           |
-| 2023 | 0.9             | 3.16               | 0.46           |
-| 2024 | 0.59            | 2.18               | 0.31           |
-| 2025 | 0.87            | 3.27               | 0.38           |
-
-> **States (accounts + storages)**
+> States (accounts + storages)
 
 - **Early years:** Monthly increase < 0.05 GiB.
 - **2017–2020:** Gradual increase, reaching ~0.5–0.8 GiB/month.
 - **2021–2023:** Peaks above 1 GiB/month several times (notably late 2021 and 2022).
 - **2024–2025:** Stabilizes around 0.5–1.3 GiB/month, with a spike to 1.28 GiB in Apr 2025.
 
-> **Trienodes**
+> Trienodes
 
 - **Consistently the largest contributor to state growth.**
 - **2015–2016:** Minimal growth (<0.1 GiB/month).
-- **2017–2020:** Rises to 1–3 GiB/month.
+- **2017–2020:** Rises to 1–2 GiB/month.
 - **2021–2023:** Frequently exceeds 3 GiB/month, peaking at 4.79 GiB in Jan 2023.
 - **2024–2025:** Remains high, with a major spike to 4.74 GiB in Apr 2025.
 
-> **Codes**
+> Codes
 
 - **Smallest but steadily increasing.**
 - **2015–2016:** Near zero.
 - **2017–2020:** Rises to 0.2–0.5 GiB/month.
 - **2021–2025:** Generally 0.3–0.5 GiB/month, with a peak of 0.56 GiB in Apr 2025.
 
-Key points:
+## Key Results and Analysis
 
-1. Early years (2015–2016): Growth was negligible, with monthly increases close to zero.
+### Growth Patterns
+
+**1. Trienode Dominance**
+
+- Trienodes account for **63%** of total state growth (238.07 GB out of 378.25 GB total)
+- Trienode growth rate is **2.2x higher** than state data growth on average (21.64 GB vs 9.62 GB per year)
+- Peak trienode growth occurred in **2022** with 45.77 GB increase
+
+**2. State Size Growth Trajectory**
+
+- Highest growth period: **2017-2022** (DeFi boom era)
+- Peak state growth in **2022**: 22.05 GB (2.3x the average)
+- Recent decline: **2023-2025** showing **29% reduction** in growth rate compared to peak years (2020-2022)
+
+**3. Smart Contract Code Evolution**
+
+- Steady growth with **peak in 2023** (5.37 GB) - coinciding with increased smart contract complexity
+- Code size growth is the most **stable category** with lowest variance
+- Total code represents **9.1%** of overall state growth
+
+### Temporal Analysis
+
+**Growth Phases:**
+
+1. Early years (2015–2016): Growth was negligible, minimal growth in all categories, Ethereum network is bootstrapping.
 2. From 2017 onward, growth accelerates, especially for trienodes, in this period, the ICO boom and CryptoKitties caused the first major spikes in all categories.
 3. From 2018 to 2020, stablecoin(e.g., USDT, DAI) growth and early DeFi(e.g., Uniswap, MakerDao) activity led to steady moderate growth in all categories.
 4. From 2020 to 2022, the DeFi Summer(e.g., Uniswap, Aave, Compound) and NFT(e.g., CryptoPunks, Bored Apes, OpenSea) boom caused large, sustained spikes, especially in trienodes.
 5. From 2022 to 2025, continued DeFi, Layer 2s(e.g., Optimism, Arbitrum) and bridges led to high, sometimes volatile growth in all categories.
+
+**Year-over-Year Insights:**
+
+- **2017**: First major growth spike (15x increase from 2016)
+- **2018**: Sustained high growth despite crypto winter
+- **2021-2022**: Peak ecosystem activity period
+- **2024-2025**: **29% decline** in total growth compared to 2020-2022 peak period
+
+### Resource Implications
+
+**Storage Requirements:**
+
+- **10-year cumulative growth**: ~378 GB across all categories
+- **Average annual requirement**: ~34 GB additional storage per year
+- **Trienode overhead**: Represents the largest infrastructure challenge

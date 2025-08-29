@@ -113,10 +113,10 @@ _Note: Write operations in Geth are performed in batch mode, resulting in signif
 
 #### Comprehensive State Growth Analysis
 
-- Analyzed trie node growth patterns from 2015-2025
+- Analyzed trie node growth patterns from 2014.07 to 2025.06
 - Measured flat state growth focusing on storage slots and account data
 - Established correlation between chain height, time, and state size
-- Created predictive models for future state size growth
+- Developed predictive models for future state size growth
 - Full report at [geth-state-changeset.md](https://github.com/jsvisa/goleveldb-bench/blob/pebble/geth-state-changeset.md)
 
 ### Key Infrastructure Developed
@@ -137,41 +137,49 @@ _Note: Write operations in Geth are performed in batch mode, resulting in signif
 
 #### 1. Historical State Growth Patterns (2015-2025)
 
-#### Monthly Growth Rates by Category
+Here is the stacked size of Ethereum state size over time with stacked categories:
 
-| Year | States (GiB/mo) | Trienodes (GiB/mo) | Codes (GiB/mo) |
-| ---- | --------------- | ------------------ | -------------- |
-| 2015 | 0               | 0                  | 0              |
-| 2016 | 0.01            | 0.03               | 0.01           |
-| 2017 | 0.13            | 0.46               | 0.14           |
-| 2018 | 0.49            | 1.92               | 0.31           |
-| 2019 | 0.40            | 1.47               | 0.32           |
-| 2020 | 0.60            | 2.18               | 0.35           |
-| 2021 | 0.76            | 2.86               | 0.33           |
-| 2022 | 1.06            | 3.74               | 0.39           |
-| 2023 | 0.90            | 3.16               | 0.46           |
-| 2024 | 0.59            | 2.18               | 0.31           |
-| 2025 | 0.87            | 3.27               | 0.38           |
+- Account Size: the flat Account snapshot size
+- Storage Size: the flat Storage snapshot size
+- Trienode Size: the total size of all trienodes, including account tries and storage tries
+- Code Size: the total size of all contract codes
+
+![assets/state-staked-over-time.png](https://github.com/jsvisa/goleveldb-bench/blob/pebble/assets/state-staked-over-time.png)
+
+#### Yearly Growth Rates by Category
+
+| Year | State Size | Trienode Size | Code Size |
+| ---- | ---------- | ------------- | --------- |
+| 2015 | 0.03       | 0.05          | 0.01      |
+| 2016 | 0.19       | 0.40          | 0.16      |
+| 2017 | 2.92       | 7.47          | 2.13      |
+| 2018 | 10.0       | 22.63         | 3.60      |
+| 2019 | 7.94       | 17.94         | 3.77      |
+| 2020 | 11.51      | 26.17         | 4.30      |
+| 2021 | 16.0       | 36.20         | 4.07      |
+| 2022 | 22.05      | 45.77         | 4.78      |
+| 2023 | 16.17      | 35.33         | 5.37      |
+| 2024 | 10.55      | 26.08         | 3.63      |
+| 2025 | 8.56       | 20.02         | 2.50      |
 
 #### 2. Key Growth Insights
 
 #### Trienodes as Primary Growth Driver
 
-- Trienodes consistently represent the largest contributor to state growth
-- Recent 18 months average: 2.7 GiB/month
-- Peak growth: 4.74 GiB in April 2025
+- Trienodes consistently represent the largest contributor to state growth, account for **63%** of total state growth (238.07 GB out of 378.25 GB total)
+- Recent trend: 2.56 GiB/month average (26.08 GiB in 2024, 20.02 GiB projected for 2025)
+- Trienode growth rate is **2.2x higher** than state data growth on average
+- Peak trienode growth occurred in **2022** with 45.77 GB increase
 
 #### State Growth Patterns
 
-- Recent 18 months average: 0.7 GiB/month
-- Range: 0.49-1.28 GiB/month
+- Recent trend: 1.05 GiB/month average (10.55 GiB in 2024, 8.56 GiB projected for 2025)
 - Correlation with major network events (DeFi Summer, NFT boom, Layer 2 adoption)
 
 #### Code Growth
 
 - Smallest but steadily increasing category
-- Recent average: 0.34 GiB/month
-- Range: 0.20-0.56 GiB/month
+- Recent average: 0.34 GiB/month (based on 2024-2025 data)
 
 #### 3. Network Event Correlations
 
@@ -184,12 +192,12 @@ _Note: Write operations in Geth are performed in batch mode, resulting in signif
 
 #### 4. Future Growth Projections
 
-#### Conservative Estimates (Based on 2024-2025 Trends)
+#### Conservative Estimates (Based on Recent 2024-2025 Trends)
 
-- **Trienodes**: 2.7 GiB/month → 32.4 GiB/year
-- **States**: 0.7 GiB/month → 8.4 GiB/year
+- **Trienodes**: 2.56 GiB/month → 30.72 GiB/year
+- **States**: 1.05 GiB/month → 12.6 GiB/year
 - **Codes**: 0.34 GiB/month → 4.1 GiB/year
-- **Total**: ~45 GiB/year combined growth
+- **Total**: ~48 GiB/year combined growth
 
 #### Implications for Node Operators
 
@@ -209,7 +217,7 @@ _Note: Write operations in Geth are performed in batch mode, resulting in signif
 
 ### State Growth Concerns
 
-1. **Accelerating Growth**: State size growing at ~45 GiB/year with increasing volatility
+1. **Accelerating Growth**: State size growing at ~48 GiB/year with increasing volatility
 2. **Trie Node Dominance**: Trienodes account for majority of state growth
 3. **Network Event Sensitivity**: Major ecosystem developments cause growth spikes
 
@@ -234,7 +242,7 @@ The main contributions are as follows:
 
 ## Phase 4: Pull Requests and Code Contributions
 
-Since my expertise lies more in application-level optimization rather than database internals, and given that the Block Access List (BAL) approach was planned to mitigate read amplification issues, I shifted my focus from database-level optimizations to application-level performance improvements in Geth.
+Given my expertise in application-level optimization rather than database internals, and considering that the Block Access List (BAL) approach was planned to mitigate read amplification issues, I shifted focus from database-level optimizations to application-level performance improvements in Geth.
 
 In this phase, I identified and addressed several performance bottlenecks within Geth code, particularly in the pathdb indexing module, and also discovered bugs in the history state indexing module.
 
